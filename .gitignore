@@ -1,2 +1,11 @@
 *.class
 *.log
+*.sc
+.idea/
+target/
+lib_managed/
+src_managed/
+.ensime_cache
+.ensime
+.bloop
+.metals
