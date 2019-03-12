@@ -4,7 +4,7 @@ import java.io.{BufferedWriter, FileWriter, Writer}
 import java.nio.file.Path
 
 import cats.effect.{ContextShift, IO, Resource}
-import fs2.{io, text, Pipe, Stream}
+import fs2.{Pipe, Stream, io, text}
 import kantan.csv._
 import kantan.csv.ops._
 
@@ -35,7 +35,7 @@ package object fastqdmux {
 
   def fastq(path: Path, blockingEc: ExecutionContext)(implicit cs: ContextShift[IO]): Stream[IO, Fastq] =
     io.file
-      .readAll[IO](path, blockingEc, 4096)
+      .readAll[IO](path, blockingEc, 16384)
       .through(text.utf8Decode)
       .through(text.lines)
       .through(fastq)
