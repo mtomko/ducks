@@ -25,10 +25,12 @@ package object fastqdmux {
   }
 
   def outputStreams(conditions: Set[Condition], outputDir: Path, blockingEc: ExecutionContext)(
-      implicit cs: ContextShift[IO]): Stream[IO, Map[Condition, BufferedWriter]] =
+      implicit cs: ContextShift[IO]): Stream[IO, (Map[Condition, BufferedWriter], BufferedWriter)] =
     Stream.resource {
-      Resource.make(IO(conditions.map(cond => cond -> writer(cond, outputDir)).toMap))(ws =>
-        cs.evalOn(blockingEc)(IO(flushAndClose(ws.values))))
+      Resource.make(IO(writers(conditions, outputDir))) { case (ws, w) =>
+        val io = IO(flushAndClose(ws.valuesIterator ++ Iterator(w)))
+        cs.evalOn(blockingEc)(io)
+      }
     }
 
   def fastq(path: Path, blockingEc: ExecutionContext)(implicit cs: ContextShift[IO]): Stream[IO, Fastq] =
@@ -69,8 +71,14 @@ package object fastqdmux {
     writer.newLine()
   }
 
+  private[this] def writers(conditions: Set[Condition], outputDir: Path): (Map[Condition, BufferedWriter], BufferedWriter) = {
+    require(!conditions.contains(Condition("unmapped")))
+    val conditionWriters = conditions.map(cond => cond -> writer(cond, outputDir)).toMap
+    (conditionWriters, writer(Condition("unmapped"), outputDir))
+  }
+
   private[this] def writer(cond: Condition, outputDir: Path): BufferedWriter =
-    new BufferedWriter(new FileWriter(outputDir.resolve(cond.name + ".txt").toFile))
+    new BufferedWriter(new FileWriter(cond.file(outputDir).toFile))
 
   private[this] def flushAndClose(ws: TraversableOnce[Writer]): Unit = {
     ws.foreach(flushAndClose)

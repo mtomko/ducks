@@ -43,10 +43,9 @@ object FastqDmux extends IOApp {
       .flatMap { blockingEc =>
         for {
           conds <- conditions(args.conditionsFile, blockingEc)
-          m <- outputStreams(conds.values.toSet, args.outputDirectory, blockingEc)
+          (m, u) <- outputStreams(conds.values.toSet, args.outputDirectory, blockingEc)
           (dmf, daf) <- fastqs(args.fastq1, args.fastq2, blockingEc)
-          cond <- Stream.emits(conds.get(Barcode(dmf.seq)).toSeq)
-          writer <- Stream.emits(m.get(cond).toSeq)
+          writer <- Stream.emit(conds.get(Barcode(dmf.seq)).flatMap(m.get).getOrElse(u))
           _ <- write(daf, writer, blockingEc)
         } yield ()
       }
