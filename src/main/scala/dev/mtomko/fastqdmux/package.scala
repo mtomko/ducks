@@ -4,7 +4,7 @@ import java.io.{BufferedWriter, FileWriter, Writer}
 import java.nio.file.Path
 
 import cats.effect.{ContextShift, IO, Resource}
-import fs2.{Pipe, Stream, io, text}
+import fs2.{io, text, Pipe, Stream}
 import kantan.csv._
 import kantan.csv.ops._
 
@@ -13,10 +13,11 @@ import scala.concurrent.ExecutionContext
 package object fastqdmux {
 
   def conditions(path: Path, blockingEc: ExecutionContext)(
-    implicit cs: ContextShift[IO]): Stream[IO, Map[Barcode, Condition]] = {
+      implicit cs: ContextShift[IO]): Stream[IO, Map[Barcode, Condition]] = {
     val s: Stream[IO, (Barcode, Condition)] =
       for {
-        rdr <- Stream.resource(Resource.make(IO(path.asCsvReader[(String, String)] (rfc))) (r => cs.evalOn(blockingEc)(IO(r.close()))))
+        rdr <- Stream.resource(
+          Resource.make(IO(path.asCsvReader[(String, String)](rfc)))(r => cs.evalOn(blockingEc)(IO(r.close()))))
         row <- Stream.fromIterator[IO, kantan.csv.ReadResult[(String, String)]](rdr.toIterator)
         (x, y) = row.right.get
       } yield (Barcode(x), Condition(y))
@@ -37,7 +38,8 @@ package object fastqdmux {
       .through(text.lines)
       .through(fastq)
 
-  def fastqs(fastq1: Path, fastq2: Path, blockingEc: ExecutionContext)(implicit cs: ContextShift[IO]): Stream[IO, (Fastq, Fastq)] =
+  def fastqs(fastq1: Path, fastq2: Path, blockingEc: ExecutionContext)(
+      implicit cs: ContextShift[IO]): Stream[IO, (Fastq, Fastq)] =
     fastq(fastq1, blockingEc).zip(fastq(fastq2, blockingEc))
 
   final def fastq[F[_]]: Pipe[F, String, Fastq] = { in =>
@@ -49,9 +51,9 @@ package object fastqdmux {
     }
   }
 
-  def write(fastq: Fastq, writer: BufferedWriter, blockingEc: ExecutionContext)(implicit cs: ContextShift[IO]): Stream[IO, Unit] = {
+  def write(fastq: Fastq, writer: BufferedWriter, blockingEc: ExecutionContext)(
+      implicit cs: ContextShift[IO]): Stream[IO, Unit] =
     Stream.eval(cs.evalOn(blockingEc)(IO(write(fastq, writer))))
-  }
 
   //********************************************************************************************************************
   // Unsafe methods (these should only be called within the context of an effect)
