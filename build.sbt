@@ -1,4 +1,4 @@
-import Dependencies._
+import build._
 
 ThisBuild / scalaVersion     := "2.12.8"
 ThisBuild / organization     := "dev.mtomko"
@@ -9,13 +9,14 @@ lazy val root = (project in file("."))
     name := "fastq-dmux",
     libraryDependencies ++=
       Seq(
-        catsCore,
-        catsEffect,
-        console4cats,
-        decline,
-        fs2Core,
-        fs2Io,
-        kantanCsv,
-        scalaTest % Test
-      )
+        libraries.catsCore,
+        libraries.catsEffect,
+        libraries.console4cats,
+        libraries.decline,
+        libraries.fs2Core,
+        libraries.fs2Io,
+        libraries.kantanCsv,
+        libraries.scalaTest % Test
+      ),
+      addCompilerPlugin(libraries.betterMonadicFor)
   )
