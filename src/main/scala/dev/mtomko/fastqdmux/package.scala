@@ -3,8 +3,8 @@ package dev.mtomko
 import java.io.{BufferedWriter, FileWriter, Writer}
 import java.nio.file.Path
 
-import cats.effect.{ContextShift, IO, Resource}
-import fs2.{Pipe, Stream, io, text}
+import cats.effect.{ContextShift, Resource, Sync}
+import fs2.{io, text, Pipe, Stream}
 import kantan.csv._
 import kantan.csv.ops._
 
@@ -12,55 +12,55 @@ import scala.concurrent.ExecutionContext
 
 package object fastqdmux {
 
-  def conditions(path: Path, blockingEc: ExecutionContext)(
-      implicit cs: ContextShift[IO]): Stream[IO, Map[Barcode, Condition]] = {
-    val s: Stream[IO, (Barcode, Condition)] =
+  def conditions[F[_]: Sync: ContextShift](path: Path)(
+      implicit blockingEc: ExecutionContext): Stream[F, Map[Barcode, Condition]] = {
+    val s: Stream[F, (Barcode, Condition)] =
       for {
-        rdr <- Stream.resource(
-          Resource.make(IO(path.asCsvReader[(String, String)](rfc)))(r => cs.evalOn(blockingEc)(IO(r.close()))))
-        row <- Stream.fromIterator[IO, kantan.csv.ReadResult[(String, String)]](rdr.toIterator)
+        rdr <- Stream.resource(Resource.make(Sync[F].delay(path.asCsvReader[(String, String)](rfc)))(r =>
+          ContextShift[F].evalOn(blockingEc)(Sync[F].delay(r.close()))))
+        row <- Stream.fromIterator(rdr.toIterator)
         (x, y) = row.right.get
       } yield (Barcode(x), Condition(y))
     s.fold(Map.empty[Barcode, Condition]) { case (m, (bc, cond)) => m + (bc -> cond) }
   }
 
-  def outputStreams(conditions: Set[Condition], outputDir: Path, blockingEc: ExecutionContext)(
-      implicit cs: ContextShift[IO]): Stream[IO, (Map[Condition, BufferedWriter], BufferedWriter)] =
+  def outputStreams[F[_]: Sync: ContextShift](conditions: Set[Condition], outputDir: Path)(
+      implicit blockingEc: ExecutionContext): Stream[F, (Map[Condition, BufferedWriter], BufferedWriter)] =
     Stream.resource {
-      Resource.make(IO(writers(conditions, outputDir))) { case (ws, w) =>
-        val io = IO(flushAndClose(ws.valuesIterator ++ Iterator(w)))
-        cs.evalOn(blockingEc)(io)
+      Resource.make(Sync[F].delay(writers(conditions, outputDir))) {
+        case (ws, w) =>
+          val close = Sync[F].delay(flushAndClose(ws.valuesIterator ++ Iterator(w)))
+          ContextShift[F].evalOn(blockingEc)(close)
       }
     }
 
-  def fastq(path: Path, blockingEc: ExecutionContext)(implicit cs: ContextShift[IO]): Stream[IO, Fastq] =
+  def fastq[F[_]: Sync: ContextShift](path: Path)(implicit blockingEc: ExecutionContext): Stream[F, Fastq] =
     io.file
-      .readAll[IO](path, blockingEc, 16384)
+      .readAll[F](path, blockingEc, 4096)
       .through(text.utf8Decode)
       .through(text.lines)
       .through(fastq)
 
-  def fastqs(fastq1: Path, fastq2: Path, blockingEc: ExecutionContext)(
-      implicit cs: ContextShift[IO]): Stream[IO, (Fastq, Fastq)] =
-    fastq(fastq1, blockingEc).zip(fastq(fastq2, blockingEc))
+  def fastqs[F[_]: Sync: ContextShift](fastq1: Path, fastq2: Path)(
+      implicit blockingEc: ExecutionContext): Stream[F, (Fastq, Fastq)] =
+    fastq(fastq1).zip(fastq(fastq2))
 
   final def fastq[F[_]]: Pipe[F, String, Fastq] = { in =>
     in.chunkN(4, allowFewer = false).map { seg =>
-      seg.toList match {
-        case id :: seq :: id2 :: qual :: Nil => Fastq(id, seq, id2, qual)
-        case _                               => throw new AssertionError("bug")
-      }
+      val arr = seg.toArray
+      if (arr.length == 4) Fastq(arr(0), arr(1), arr(2), arr(3))
+      else throw new AssertionError("bug")
     }
   }
 
-  def write(fastq: Fastq, writer: BufferedWriter, blockingEc: ExecutionContext)(
-      implicit cs: ContextShift[IO]): Stream[IO, Unit] =
-    Stream.eval(cs.evalOn(blockingEc)(IO(write(fastq, writer))))
+  def write[F[_]: Sync: ContextShift](fastq: Fastq, writer: BufferedWriter)(
+      implicit blockingEc: ExecutionContext): Stream[F, Unit] =
+    Stream.eval(ContextShift[F].evalOn(blockingEc)(Sync[F].delay(write1(fastq, writer))))
 
   //********************************************************************************************************************
   // Unsafe methods (these should only be called within the context of an effect)
   //********************************************************************************************************************
-  private[this] def write(fastq: Fastq, writer: BufferedWriter): Unit = {
+  private[this] def write1(fastq: Fastq, writer: BufferedWriter): Unit = {
     writer.write(fastq.id)
     writer.newLine()
     writer.write(fastq.seq)
@@ -71,10 +71,12 @@ package object fastqdmux {
     writer.newLine()
   }
 
-  private[this] def writers(conditions: Set[Condition], outputDir: Path): (Map[Condition, BufferedWriter], BufferedWriter) = {
-    require(!conditions.contains(Condition("unmapped")))
+  private[this] def writers(
+      conditions: Set[Condition],
+      outputDir: Path): (Map[Condition, BufferedWriter], BufferedWriter) = {
+    require(!conditions.contains(Condition("unmatched")))
     val conditionWriters = conditions.map(cond => cond -> writer(cond, outputDir)).toMap
-    (conditionWriters, writer(Condition("unmapped"), outputDir))
+    (conditionWriters, writer(Condition("unamatched"), outputDir))
   }
 
   private[this] def writer(cond: Condition, outputDir: Path): BufferedWriter =

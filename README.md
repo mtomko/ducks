@@ -9,11 +9,11 @@ FASTQ demultiplexer
     Options and flags:
         --help
             Display this help text.
-        --conditions <path>
+        --conditions <path>, -c <path>
             The conditions file
-        --dmux-fastq <path>, -m <path>
+        --dmux-fastq <path>, -1 <path>
             The FASTQ file containing demultiplexing reads
-        --data-fastq <path>, -d <path>
+        --data-fastq <path>, -2 <path>
             The FASTQ file containing data reads
         --output-dir <path>, -o <path>
             The output directory
