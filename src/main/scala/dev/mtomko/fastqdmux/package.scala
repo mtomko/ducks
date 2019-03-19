@@ -4,8 +4,11 @@ import java.io._
 import java.nio.file.Path
 import java.util.zip.GZIPInputStream
 
-import cats.effect.{ContextShift, Resource, Sync}
+import cats.effect.{Concurrent, ContextShift, Resource, Sync}
 import cats.syntax.apply._
+import cats.syntax.functor._
+import cats.syntax.parallel._
+import cats.temp.par._
 import fs2.{Pipe, Stream, io}
 import kantan.csv._
 import kantan.csv.ops._
@@ -13,6 +16,9 @@ import kantan.csv.ops._
 import scala.concurrent.ExecutionContext
 
 package object fastqdmux {
+
+  private[this] val CR = '\r'.toByte
+  private[this] val N = '\n'.toByte
 
   def conditions[F[_]: Sync: ContextShift](path: Path)(
       implicit blockingEc: ExecutionContext): Stream[F, Map[Barcode, Condition]] = {
@@ -29,9 +35,9 @@ package object fastqdmux {
   def fastq[F[_]: Sync: ContextShift](in: InputStream)(implicit blockingEc: ExecutionContext): Stream[F, Fastq] =
     io.readInputStream(Sync[F].delay(in), 4096, blockingEc, closeAfterUse = false)
       .map(_.toChar)
-      .filter(_ != '\r'.toByte)
-      .split(_ == '\n'.toByte)
-      .map(x => new String(x.toArray))
+      .filter(_ != CR)
+      .split(_ == N)
+      .map(bytes => new String(bytes.toArray))
       .through(fastq)
 
   def fastqs[F[_]: Sync: ContextShift](fastq1: Path, fastq2: Path)(
@@ -50,11 +56,14 @@ package object fastqdmux {
     }
   }
 
-  def write[F[_]: Sync: ContextShift](fastq1: Fastq, fastq2: Fastq, writer: (PrintWriter, PrintWriter))(
-      implicit blockingEc: ExecutionContext): Stream[F, Unit] = {
-    val f1 = ContextShift[F].evalOn(blockingEc)(Sync[F].delay(write1(fastq1, writer._1)))
-    val f2 = ContextShift[F].evalOn(blockingEc)(Sync[F].delay(write1(fastq2, writer._2)))
-    Stream.eval(ContextShift[F].evalOn(blockingEc)(f1 <* f2))
+  def write[F[_]: Concurrent: Par : ContextShift](
+      fastq1: Fastq,
+      fastq2: Fastq,
+      writer: (PrintWriter, PrintWriter))(implicit blockingEc: ExecutionContext): Stream[F, Unit] = {
+    val c1 = Concurrent[F].delay(writeFastq(fastq1, writer._1))
+    val c2 = Concurrent[F].delay(writeFastq(fastq2, writer._2))
+    val c3 = ContextShift[F].evalOn(blockingEc)((c1, c2).parTupled.void)
+    Stream.eval(c3)
   }
 
   private[this] def inputStreamResource[F[_]: Sync](p: Path): Resource[F, InputStream] = {
@@ -72,7 +81,7 @@ package object fastqdmux {
   def inputStream(p: Path): InputStream = new BufferedInputStream(new FileInputStream(p.toFile))
   def gzInputSteam(p: Path): InputStream = new GZIPInputStream(inputStream(p))
 
-  private[this] def write1(fastq: Fastq, writer: PrintWriter): Unit = {
+  private[this] def writeFastq(fastq: Fastq, writer: PrintWriter): Unit = {
     writer.println(fastq.id)
     writer.println(fastq.seq)
     writer.println(fastq.id2)

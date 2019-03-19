@@ -11,6 +11,7 @@ lazy val root = (project in file("."))
       Seq(
         libraries.catsCore,
         libraries.catsEffect,
+        libraries.catsPar,
         libraries.console4cats,
         libraries.decline,
         libraries.fs2Core,

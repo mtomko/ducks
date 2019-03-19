@@ -9,6 +9,7 @@ object build {
     // dependencies
     lazy val catsCore = "org.typelevel" %% "cats-core" % "1.6.0"
     lazy val catsEffect = "org.typelevel" %% "cats-effect" % "1.2.0"
+    lazy val catsPar = "io.chrisdavenport" %% "cats-par" % "0.2.1"
     lazy val console4cats = "com.github.gvolpe" %% "console4cats" % "0.6.0"
     lazy val decline = "com.monovore" %% "decline" % "0.6.1"
     lazy val fs2Core = "co.fs2" %% "fs2-core" % "1.0.4"
