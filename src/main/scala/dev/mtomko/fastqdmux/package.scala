@@ -21,8 +21,8 @@ package object fastqdmux {
         rdr <- Stream.resource(Resource.make(Sync[F].delay(path.asCsvReader[(String, String)](rfc)))(r =>
           ContextShift[F].evalOn(blockingEc)(Sync[F].delay(r.close()))))
         row <- Stream.fromIterator(rdr.toIterator)
-        (x, y) = row.right.get
-      } yield (Barcode(x), Condition(y))
+        (bc, cond) <- Stream.fromEither(row)
+      } yield (Barcode(bc), Condition(cond))
     s.fold(Map.empty[Barcode, Condition]) { case (m, (bc, cond)) => m + (bc -> cond) }
   }
 
