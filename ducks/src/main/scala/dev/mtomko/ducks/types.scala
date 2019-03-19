@@ -1,4 +1,4 @@
-package dev.mtomko.fastqdmux
+package dev.mtomko.ducks
 
 import java.net.URLEncoder
 import java.nio.file.Path

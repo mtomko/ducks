@@ -4,9 +4,13 @@ ThisBuild / scalaVersion     := "2.12.8"
 ThisBuild / organization     := "dev.mtomko"
 ThisBuild / organizationName := "fastq-dmux"
 
-lazy val root = (project in file("."))
+lazy val root = project.in(file("."))
+  .aggregate(ducks, bench)
+  .disablePlugins(AssemblyPlugin)
+
+lazy val ducks = project.in(file("ducks"))
   .settings(
-    name := "fastq-dmux",
+    name := "ducks",
     libraryDependencies ++=
       Seq(
         libraries.catsCore,
@@ -21,3 +25,8 @@ lazy val root = (project in file("."))
       ),
       addCompilerPlugin(libraries.betterMonadicFor)
   )
+
+lazy val bench = project.in(file("bench"))
+  .dependsOn(ducks)
+  .disablePlugins(AssemblyPlugin)
+  .enablePlugins(JmhPlugin)

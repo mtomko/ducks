@@ -1,4 +1,4 @@
-package dev.mtomko.fastqdmux
+package dev.mtomko.ducks
 
 import java.nio.file.Path
 

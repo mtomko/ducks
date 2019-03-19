@@ -15,7 +15,7 @@ import kantan.csv.ops._
 
 import scala.concurrent.ExecutionContext
 
-package object fastqdmux {
+package object ducks {
 
   private[this] val CR = '\r'.toByte
   private[this] val N = '\n'.toByte
@@ -48,7 +48,15 @@ package object fastqdmux {
       })
       .flatten
 
-  final def fastq[F[_]]: Pipe[F, String, Fastq] = { in =>
+  def fastq[F[_]]: Pipe[F, String, Fastq] = { in =>
+    in.chunkN(4, allowFewer = false).map { seg =>
+      val arr = seg.toArray
+      if (arr.length == 4) Fastq(arr(0), arr(1), arr(2), arr(3))
+      else throw new AssertionError("bug")
+    }
+  }
+
+  def fastq1[F[_]]: Pipe[F, String, Fastq] = { in =>
     in.chunkN(4, allowFewer = false).map { seg =>
       val arr = seg.toArray
       if (arr.length == 4) Fastq(arr(0), arr(1), arr(2), arr(3))

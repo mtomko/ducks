@@ -1,4 +1,4 @@
-package dev.mtomko.fastqdmux
+package dev.mtomko.ducks
 
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.Executors
@@ -11,7 +11,7 @@ import fs2.Stream
 
 import scala.concurrent.ExecutionContext
 
-object FastqDmux extends IOApp {
+object Ducks extends IOApp {
 
   // TODO: is a fixed thread pool of size 2 optimal? This is what's given in the fs2 example, but we generally use an
   //       unbounded fork/join pool for blocking operations in other situations
@@ -21,7 +21,7 @@ object FastqDmux extends IOApp {
   def help(h: Help): IO[ExitCode] = putStrLn(h.toString()).map(_ => ExitCode.Error)
 
   private[this] val command: Command[Config] =
-    Command(name = "fastq-dmux", header = "Demultiplexes FASTQ files based on conditions") {
+    Command(name = "ducks", header = "Demultiplexes FASTQ files based on conditions") {
       val conditionsFileOpt =
         Opts.option[Path]("conditions", short = "c", help = "The conditions file")
       val dmuxFastqOpt =

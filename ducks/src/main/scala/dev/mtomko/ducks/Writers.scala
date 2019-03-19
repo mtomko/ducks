@@ -1,10 +1,10 @@
-package dev.mtomko.fastqdmux
+package dev.mtomko.ducks
 
 import java.io._
 import java.nio.file.Path
 
 import cats.effect.{ContextShift, Resource, Sync}
-import dev.mtomko.fastqdmux.Writers._
+import dev.mtomko.ducks.Writers._
 
 import scala.concurrent.ExecutionContext
 

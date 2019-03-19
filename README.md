@@ -1,8 +1,8 @@
-# fastq-dmux
+# Ducks
 FASTQ demultiplexer
 
 ## Usage
-    Usage: fastq-dmux --conditions <path> --dmux-fastq <path> --data-fastq <path> [--output-dir <path>]
+    Usage: ducks --conditions <path> --dmux-fastq <path> --data-fastq <path> [--output-dir <path>]
     
     Demultiplexes FASTQ files based on conditions
     

@@ -17,7 +17,7 @@ object build {
     lazy val kantanCsv = "com.nrinaudo" %% "kantan.csv" % "0.5.0"
     
     // test dependencies
-    lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.0.6"
+    lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.0.7"
   }
   
 }
