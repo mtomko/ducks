@@ -6,8 +6,8 @@ import java.nio.file.Path
 final case class Barcode(barcode: String) extends AnyVal
 
 final case class Condition(name: String) extends AnyVal {
-  def filename: String = URLEncoder.encode(name, "UTF-8") + ".fastq"
-  def file(outputDir: Path): Path = outputDir.resolve(filename)
+  def filename(suffix: String): String = URLEncoder.encode(name + suffix, "UTF-8") + ".fastq"
+  def file(suffix: String, outputDir: Path): Path = outputDir.resolve(filename(suffix))
 }
 
 final case class Fastq(id: String, seq: String, id2: String, qual: String)

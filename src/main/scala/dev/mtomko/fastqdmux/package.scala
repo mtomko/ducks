@@ -1,10 +1,12 @@
 package dev.mtomko
 
-import java.io.{BufferedWriter, FileWriter, Writer}
+import java.io._
 import java.nio.file.Path
+import java.util.zip.GZIPInputStream
 
 import cats.effect.{ContextShift, Resource, Sync}
-import fs2.{io, text, Pipe, Stream}
+import cats.syntax.apply._
+import fs2.{Pipe, Stream, io}
 import kantan.csv._
 import kantan.csv.ops._
 
@@ -24,26 +26,21 @@ package object fastqdmux {
     s.fold(Map.empty[Barcode, Condition]) { case (m, (bc, cond)) => m + (bc -> cond) }
   }
 
-  def outputStreams[F[_]: Sync: ContextShift](conditions: Set[Condition], outputDir: Path)(
-      implicit blockingEc: ExecutionContext): Stream[F, (Map[Condition, BufferedWriter], BufferedWriter)] =
-    Stream.resource {
-      Resource.make(Sync[F].delay(writers(conditions, outputDir))) {
-        case (ws, w) =>
-          val close = Sync[F].delay(flushAndClose(ws.valuesIterator ++ Iterator(w)))
-          ContextShift[F].evalOn(blockingEc)(close)
-      }
-    }
-
-  def fastq[F[_]: Sync: ContextShift](path: Path)(implicit blockingEc: ExecutionContext): Stream[F, Fastq] =
-    io.file
-      .readAll[F](path, blockingEc, 4096)
-      .through(text.utf8Decode)
-      .through(text.lines)
+  def fastq[F[_]: Sync: ContextShift](in: InputStream)(implicit blockingEc: ExecutionContext): Stream[F, Fastq] =
+    io.readInputStream(Sync[F].delay(in), 4096, blockingEc, closeAfterUse = false)
+      .map(_.toChar)
+      .filter(_ != '\r'.toByte)
+      .split(_ == '\n'.toByte)
+      .map(x => new String(x.toArray))
       .through(fastq)
 
   def fastqs[F[_]: Sync: ContextShift](fastq1: Path, fastq2: Path)(
       implicit blockingEc: ExecutionContext): Stream[F, (Fastq, Fastq)] =
-    fastq(fastq1).zip(fastq(fastq2))
+    Stream
+      .resource((inputStreamResource(fastq1), inputStreamResource(fastq2)).mapN { (i1, i2) =>
+        fastq(i1).zip(fastq(i2))
+      })
+      .flatten
 
   final def fastq[F[_]]: Pipe[F, String, Fastq] = { in =>
     in.chunkN(4, allowFewer = false).map { seg =>
@@ -53,41 +50,32 @@ package object fastqdmux {
     }
   }
 
-  def write[F[_]: Sync: ContextShift](fastq: Fastq, writer: BufferedWriter)(
-      implicit blockingEc: ExecutionContext): Stream[F, Unit] =
-    Stream.eval(ContextShift[F].evalOn(blockingEc)(Sync[F].delay(write1(fastq, writer))))
+  def write[F[_]: Sync: ContextShift](fastq1: Fastq, fastq2: Fastq, writer: (PrintWriter, PrintWriter))(
+      implicit blockingEc: ExecutionContext): Stream[F, Unit] = {
+    val f1 = ContextShift[F].evalOn(blockingEc)(Sync[F].delay(write1(fastq1, writer._1)))
+    val f2 = ContextShift[F].evalOn(blockingEc)(Sync[F].delay(write1(fastq2, writer._2)))
+    Stream.eval(ContextShift[F].evalOn(blockingEc)(f1 <* f2))
+  }
+
+  private[this] def inputStreamResource[F[_]: Sync](p: Path): Resource[F, InputStream] = {
+    if (p.getFileName.toString.toLowerCase.endsWith(".gz")) {
+      Resource.make(Sync[F].delay(gzInputSteam(p)))(is => Sync[F].delay(is.close()))
+    } else {
+      Resource.make(Sync[F].delay(inputStream(p)))(is => Sync[F].delay(is.close()))
+    }
+  }
 
   //********************************************************************************************************************
   // Unsafe methods (these should only be called within the context of an effect)
   //********************************************************************************************************************
-  private[this] def write1(fastq: Fastq, writer: BufferedWriter): Unit = {
-    writer.write(fastq.id)
-    writer.newLine()
-    writer.write(fastq.seq)
-    writer.newLine()
-    writer.write(fastq.id2)
-    writer.newLine()
-    writer.write(fastq.qual)
-    writer.newLine()
-  }
 
-  private[this] def writers(
-      conditions: Set[Condition],
-      outputDir: Path): (Map[Condition, BufferedWriter], BufferedWriter) = {
-    require(!conditions.contains(Condition("unmatched")))
-    val conditionWriters = conditions.map(cond => cond -> writer(cond, outputDir)).toMap
-    (conditionWriters, writer(Condition("unamatched"), outputDir))
-  }
+  def inputStream(p: Path): InputStream = new BufferedInputStream(new FileInputStream(p.toFile))
+  def gzInputSteam(p: Path): InputStream = new GZIPInputStream(inputStream(p))
 
-  private[this] def writer(cond: Condition, outputDir: Path): BufferedWriter =
-    new BufferedWriter(new FileWriter(cond.file(outputDir).toFile))
-
-  private[this] def flushAndClose(ws: TraversableOnce[Writer]): Unit = {
-    ws.foreach(flushAndClose)
-  }
-
-  private[this] def flushAndClose(w: Writer): Unit = {
-    w.flush()
-    w.close()
+  private[this] def write1(fastq: Fastq, writer: PrintWriter): Unit = {
+    writer.println(fastq.id)
+    writer.println(fastq.seq)
+    writer.println(fastq.id2)
+    writer.println(fastq.qual)
   }
 }

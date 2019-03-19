@@ -43,10 +43,10 @@ object FastqDmux extends IOApp {
       .flatMap { implicit blockingEc =>
         for {
           conds <- conditions[IO](args.conditionsFile)
-          (condWriters, unmatchedWriter) <- outputStreams[IO](conds.values.toSet, args.outputDirectory)
+          writers <- Stream.resource(Writers.resource[IO](conds, args.outputDirectory))
           (dmf, daf) <- fastqs[IO](args.fastq1, args.fastq2)
-          writer <- Stream.emit(conds.get(Barcode(dmf.seq)).flatMap(condWriters.get).getOrElse(unmatchedWriter))
-          _ <- write[IO](daf, writer)
+          writer <- Stream.emit(writers.writer(Barcode(dmf.seq)))
+          _ <- write[IO](dmf, daf, writer)
         } yield ()
       }
       .compile
