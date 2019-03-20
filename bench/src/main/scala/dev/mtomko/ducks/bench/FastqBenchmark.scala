@@ -11,11 +11,32 @@ import org.openjdk.jmh.annotations._
 @State(Scope.Benchmark)
 class FastqBenchmark {
 
+  @inline
+  private[this] final def baseline10000: Stream[Pure, String] = Stream("id", "seq", "id2", "qual").repeat.take(10000)
+
+  @Benchmark
+  @OperationsPerInvocation(10000)
+  def baseline(): Unit = {
+    val _ = baseline10000.toList
+  }
+
   @Benchmark
   @OperationsPerInvocation(10000)
   def fastq(): Unit = {
-    val s = Stream("1", "2", "3", "4").repeat.take(10000)
-    val _ = s.through(fastq1[Pure]).toList
+    val _ = baseline10000.through(fastq1).toList
   }
+
+  @Benchmark
+  @OperationsPerInvocation(10000)
+  def zipped(): Unit = {
+    val _ = baseline10000.zip(baseline10000).toList
+  }
+
+  @Benchmark
+  @OperationsPerInvocation(10000)
+  def zippedFastq(): Unit = {
+    val _ = baseline10000.through(fastq1).zip(baseline10000.through(fastq1)).toList
+  }
+
 
 }
