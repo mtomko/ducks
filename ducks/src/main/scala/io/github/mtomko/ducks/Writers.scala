@@ -1,10 +1,10 @@
-package dev.mtomko.ducks
+package io.github.mtomko.ducks
 
 import java.io._
 import java.nio.file.Path
 
 import cats.effect.{ContextShift, Resource, Sync}
-import dev.mtomko.ducks.Writers._
+import io.github.mtomko.ducks.Writers._
 
 import scala.concurrent.ExecutionContext
 

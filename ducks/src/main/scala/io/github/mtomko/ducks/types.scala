@@ -1,4 +1,4 @@
-package dev.mtomko.ducks
+package io.github.mtomko.ducks
 
 import java.net.URLEncoder
 import java.nio.file.Path

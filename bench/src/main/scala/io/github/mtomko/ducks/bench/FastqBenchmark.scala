@@ -1,9 +1,9 @@
-package dev.mtomko.ducks.bench
+package io.github.mtomko.ducks.bench
 
 import java.util.concurrent.TimeUnit
 
-import dev.mtomko.ducks.fastq1
 import fs2.{Pure, Stream}
+import io.github.mtomko.ducks.pipe
 import org.openjdk.jmh.annotations._
 
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
@@ -23,7 +23,7 @@ class FastqBenchmark {
   @Benchmark
   @OperationsPerInvocation(10000)
   def fastq(): Unit = {
-    val _ = baseline10000.through(fastq1).toList
+    val _ = baseline10000.through(pipe.fastq).toList
   }
 
   @Benchmark
@@ -35,8 +35,7 @@ class FastqBenchmark {
   @Benchmark
   @OperationsPerInvocation(10000)
   def zippedFastq(): Unit = {
-    val _ = baseline10000.through(fastq1).zip(baseline10000.through(fastq1)).toList
+    val _ = baseline10000.through(pipe.fastq).zip(baseline10000.through(pipe.fastq)).toList
   }
-
 
 }
