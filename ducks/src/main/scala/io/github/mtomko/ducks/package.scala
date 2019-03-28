@@ -1,6 +1,6 @@
 package io.github.mtomko
 
-import java.io.{BufferedReader, FileInputStream, InputStreamReader, PrintWriter}
+import java.io.{BufferedReader, FileInputStream, InputStreamReader, PrintWriter, Reader}
 import java.nio.file.Path
 import java.util.zip.GZIPInputStream
 
@@ -29,12 +29,19 @@ package object ducks {
   }
 
   def fastq[F[_]: Sync: ContextShift](p: Path)(implicit blockingEc: ExecutionContext): Stream[F, Fastq] = {
+    @inline
+    def gzipReader(p: Path): BufferedReader =
+      new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(p.toFile), 65536)))
+
+    @inline
+    def reader(p: Path): BufferedReader =
+      new BufferedReader(new InputStreamReader(new FileInputStream(p.toFile)), 65536)
+  
     val inputStreamResource: Resource[F, BufferedReader] = Resource.fromAutoCloseable {
-      // TODO: optimize buffers
-      if (isGzFile(p))
-        Sync[F].delay(
-          new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(p.toFile), 65536))))
-      else Sync[F].delay(new BufferedReader(new InputStreamReader(new FileInputStream(p.toFile)), 65536))
+      Sync[F].delay {
+        if (isGzFile(p)) gzipReader(p)
+        else reader(p)
+      }
     }
 
     @inline
@@ -64,6 +71,14 @@ package object ducks {
 
   def write[F[_]: Concurrent: Par: ContextShift](fastq1: Fastq, fastq2: Fastq, writer: (PrintWriter, PrintWriter))(
       implicit blockingEc: ExecutionContext): Stream[F, Unit] = {
+
+    def writeFastq(fastq: Fastq, writer: PrintWriter): Unit = {
+      writer.println(fastq.id)
+      writer.println(fastq.seq)
+      writer.println(fastq.id2)
+      writer.println(fastq.qual)
+    }
+
     val c1 = Concurrent[F].delay(writeFastq(fastq1, writer._1))
     val c2 = Concurrent[F].delay(writeFastq(fastq2, writer._2))
     val c3 = ContextShift[F].evalOn(blockingEc)((c1, c2).parTupled.void)
@@ -72,14 +87,4 @@ package object ducks {
 
   def isGzFile(p: Path): Boolean = p.getFileName.toString.toLowerCase.endsWith(".gz")
 
-  //********************************************************************************************************************
-  // Unsafe methods (these should only be called within the context of an effect)
-  //********************************************************************************************************************
-
-  private[this] def writeFastq(fastq: Fastq, writer: PrintWriter): Unit = {
-    writer.println(fastq.id)
-    writer.println(fastq.seq)
-    writer.println(fastq.id2)
-    writer.println(fastq.qual)
-  }
 }
