@@ -16,7 +16,7 @@ object Ducks extends IOApp {
   // TODO: is a fixed thread pool of size 2 optimal? This is what's given in the fs2 example, but we generally use an
   //       unbounded fork/join pool for blocking operations in other situations
   private[this] val blockingExecutionContext =
-  Resource.make(IO(ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(4))))(ec => IO(ec.shutdown()))
+  Resource.make(IO(ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(8))))(ec => IO(ec.shutdown()))
 
   def help(h: Help): IO[ExitCode] = putStrLn(h.toString()).map(_ => ExitCode.Error)
 

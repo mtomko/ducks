@@ -1,22 +1,20 @@
 package io.github.mtomko
 
-import java.io.PrintWriter
+import java.io.{BufferedReader, FileInputStream, InputStreamReader, PrintWriter}
 import java.nio.file.Path
+import java.util.zip.GZIPInputStream
 
 import cats.effect.{Concurrent, ContextShift, Resource, Sync}
 import cats.syntax.functor._
 import cats.syntax.parallel._
 import cats.temp.par._
-import fs2.{Stream, compress, io}
+import fs2.Stream
 import kantan.csv._
 import kantan.csv.ops._
 
 import scala.concurrent.ExecutionContext
 
 package object ducks {
-
-  private[this] val CR = '\r'.toByte
-  private[this] val N = '\n'.toByte
 
   def conditions[F[_]: Sync: ContextShift](path: Path)(
       implicit blockingEc: ExecutionContext): Stream[F, Map[Barcode, Condition]] = {
@@ -31,19 +29,38 @@ package object ducks {
   }
 
   def fastq[F[_]: Sync: ContextShift](p: Path)(implicit blockingEc: ExecutionContext): Stream[F, Fastq] = {
-    val byteStream: Stream[F, Byte] =
-      if (p.endsWith(".gz")) io.file.readAll[F](p, blockingEc, 65536).through(compress.gunzip(8192))
-      else io.file.readAll[F](p, blockingEc, 65536)
-    byteStream
-      .map(_.toChar)
-      .filter(_ != CR)
-      .split(_ == N)
-      .map(bytes => new String(bytes.toArray))
-      .through(pipe.fastq)
+    val inputStreamResource: Resource[F, BufferedReader] = Resource.fromAutoCloseable {
+      // TODO: optimize buffers
+      if (isGzFile(p))
+        Sync[F].delay(
+          new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(p.toFile), 65536))))
+      else Sync[F].delay(new BufferedReader(new InputStreamReader(new FileInputStream(p.toFile)), 65536))
+    }
+
+    @inline
+    def fastqStream(r: BufferedReader): Stream[F, Fastq] =
+      Stream.unfoldEval(r) { s =>
+        ContextShift[F].evalOn(blockingEc) {
+          Sync[F].delay {
+            val l1 = s.readLine()
+            val l2 = s.readLine()
+            val l3 = s.readLine()
+            val l4 = s.readLine()
+            if (l4 == null) None
+            else Some((Fastq(l1, l2, l3, l4), s))
+          }
+        }
+      }
+
+    for {
+      s <- Stream.resource(inputStreamResource)
+      f <- fastqStream(s)
+    } yield f
   }
 
-  def fastqs[F[_]: Sync: ContextShift](fastq1: Path, fastq2: Path)(
-      implicit blockingEc: ExecutionContext): Stream[F, (Fastq, Fastq)] = fastq(fastq1).zip(fastq(fastq2))
+  def fastqs[F[_]: Sync: ContextShift](p1: Path, p2: Path)(
+      implicit blockingEc: ExecutionContext): Stream[F, (Fastq, Fastq)] =
+    fastq(p1).buffer(1000).zip(fastq(p2).buffer(1000))
 
   def write[F[_]: Concurrent: Par: ContextShift](fastq1: Fastq, fastq2: Fastq, writer: (PrintWriter, PrintWriter))(
       implicit blockingEc: ExecutionContext): Stream[F, Unit] = {
@@ -52,6 +69,8 @@ package object ducks {
     val c3 = ContextShift[F].evalOn(blockingEc)((c1, c2).parTupled.void)
     Stream.eval(c3)
   }
+
+  def isGzFile(p: Path): Boolean = p.getFileName.toString.toLowerCase.endsWith(".gz")
 
   //********************************************************************************************************************
   // Unsafe methods (these should only be called within the context of an effect)
