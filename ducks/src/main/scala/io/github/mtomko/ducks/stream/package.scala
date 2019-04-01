@@ -3,7 +3,7 @@ package io.github.mtomko.ducks
 import java.nio.file.Path
 
 import cats.effect.{ContextShift, Sync}
-import fs2.{Pipe, Stream, compress, io}
+import fs2.{compress, io, Pipe, Stream}
 
 import scala.concurrent.ExecutionContext
 

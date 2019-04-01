@@ -1,6 +1,6 @@
 package io.github.mtomko
 
-import java.io.{BufferedReader, FileInputStream, InputStreamReader, PrintWriter, Reader}
+import java.io.{BufferedReader, FileInputStream, InputStreamReader, PrintWriter}
 import java.nio.file.Path
 import java.util.zip.GZIPInputStream
 
