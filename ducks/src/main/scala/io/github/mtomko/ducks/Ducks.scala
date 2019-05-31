@@ -3,10 +3,9 @@ package io.github.mtomko.ducks
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.Executors
 
-import cats.effect.{Concurrent, ContextShift, ExitCode, IO, IOApp, Resource, Sync}
+import cats.effect.{ContextShift, ExitCode, IO, IOApp, Resource, Sync}
 import cats.effect.Console.io._
 import cats.implicits._
-import cats.temp.par._
 import com.monovore.decline.{Command, Help, Opts}
 import fs2.Stream
 
@@ -38,16 +37,16 @@ object Ducks extends IOApp {
       }
     }
 
-  def run[F[_]: Concurrent: Par: ContextShift](args: Config): F[ExitCode] =
+  def run[F[_]: Sync: ContextShift](args: Config): F[ExitCode] =
     Stream
       .resource(blockingExecutionContext)
       .flatMap { implicit blockingEc =>
         for {
-          conds <- conditions(args.conditionsFile)
+          conds <- conditions[F](args.conditionsFile)
           writers <- Stream.resource(Writers.resource(conds, args.outputDirectory))
-          (dmf, daf) <- fastqs(args.fastq1, args.fastq2)
+          (dmf, daf) <- fastqs[F](args.fastq1, args.fastq2)
           writer <- Stream.emit(writers.writer(Barcode(dmf.seq)))
-          _ <- write(dmf, daf, writer)
+          _ <- Stream.eval_(write[F](dmf, daf, writer))
         } yield ()
       }
       .compile
