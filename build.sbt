@@ -20,6 +20,9 @@ lazy val ducks = project.in(file("ducks"))
         libraries.decline,
         libraries.fs2Core,
         libraries.fs2Io,
+        libraries.log4s,
+        libraries.logbackClassic,
+        libraries.logbackCore,
         libraries.kantanCsv,
         libraries.scalaTest % Test
       ),
