@@ -4,10 +4,8 @@ import java.io.{BufferedReader, FileInputStream, InputStreamReader, PrintWriter}
 import java.nio.file.Path
 import java.util.zip.GZIPInputStream
 
-import cats.effect.{Concurrent, ContextShift, Resource, Sync}
-import cats.syntax.functor._
-import cats.syntax.parallel._
-import cats.temp.par._
+import cats.effect.{ContextShift, Resource, Sync}
+import cats.syntax.apply._
 import fs2.Stream
 import kantan.csv._
 import kantan.csv.ops._
@@ -67,22 +65,19 @@ package object ducks {
 
   def fastqs[F[_]: Sync: ContextShift](p1: Path, p2: Path)(
       implicit blockingEc: ExecutionContext): Stream[F, (Fastq, Fastq)] =
-    fastq(p1).buffer(1000).zip(fastq(p2).buffer(1000))
+    fastq(p1).buffer(4096).zip(fastq(p2).buffer(4096))
 
-  def write[F[_]: Concurrent: Par: ContextShift](fastq1: Fastq, fastq2: Fastq, writer: (PrintWriter, PrintWriter))(
-      implicit blockingEc: ExecutionContext): Stream[F, Unit] = {
+  def write[F[_]: Sync: ContextShift](fastq1: Fastq, fastq2: Fastq, writer: (PrintWriter, PrintWriter))(
+      implicit blockingEc: ExecutionContext): F[Unit] = {
 
     def writeFastq(fastq: Fastq, writer: PrintWriter): Unit = {
-      writer.println(fastq.id)
-      writer.println(fastq.seq)
-      writer.println(fastq.id2)
-      writer.println(fastq.qual)
+      val lines = fastq.id + "\n" + fastq.seq + "\n" + fastq.id2 + "\n" + fastq.qual
+      writer.println(lines)
     }
 
-    val c1 = Concurrent[F].delay(writeFastq(fastq1, writer._1))
-    val c2 = Concurrent[F].delay(writeFastq(fastq2, writer._2))
-    val c3 = ContextShift[F].evalOn(blockingEc)((c1, c2).parTupled.void)
-    Stream.eval(c3)
+    val c1 = Sync[F].delay(writeFastq(fastq1, writer._1))
+    val c2 = Sync[F].delay(writeFastq(fastq2, writer._2))
+    ContextShift[F].evalOn(blockingEc)(c1 *> c2)
   }
 
   def isGzFile(p: Path): Boolean = p.getFileName.toString.toLowerCase.endsWith(".gz")
