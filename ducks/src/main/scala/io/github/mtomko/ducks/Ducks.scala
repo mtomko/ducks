@@ -16,7 +16,7 @@ object Ducks extends IOApp {
   // TODO: is a fixed thread pool of size 2 optimal? This is what's given in the fs2 example, but we generally use an
   //       unbounded fork/join pool for blocking operations in other situations
   private[this] def blockingExecutionContext[F[_]: Sync]: Resource[F, ExecutionContextExecutorService] =
-    Resource.make(Sync[F].delay(ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(8))))(ec => Sync[F].delay(ec.shutdown()))
+    Resource.make(Sync[F].delay(ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())))(ec => Sync[F].delay(ec.shutdown()))
 
   def help(h: Help): IO[ExitCode] = putStrLn(h.toString()).map(_ => ExitCode.Error)
 
@@ -46,7 +46,7 @@ object Ducks extends IOApp {
           writers <- Stream.resource(Writers.resource(conds, args.outputDirectory))
           (dmf, daf) <- fastqs[F](args.fastq1, args.fastq2)
           writer <- Stream.emit(writers.writer(Barcode(dmf.seq)))
-          _ <- Stream.eval_(write[F](dmf, daf, writer))
+          _ <- Stream.eval(write[F](dmf, daf, writer))
         } yield ()
       }
       .compile
