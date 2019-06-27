@@ -34,7 +34,7 @@ package object ducks {
     @inline
     def reader(p: Path): BufferedReader =
       new BufferedReader(new InputStreamReader(new FileInputStream(p.toFile)), 65536)
-  
+
     val inputStreamResource: Resource[F, BufferedReader] = Resource.fromAutoCloseable {
       Sync[F].delay {
         if (isGzFile(p)) gzipReader(p)

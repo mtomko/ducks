@@ -13,8 +13,6 @@ import scala.concurrent.{ExecutionContext, ExecutionContextExecutorService}
 
 object Ducks extends IOApp {
 
-  // TODO: is a fixed thread pool of size 2 optimal? This is what's given in the fs2 example, but we generally use an
-  //       unbounded fork/join pool for blocking operations in other situations
   private[this] def blockingExecutionContext[F[_]: Sync]: Resource[F, ExecutionContextExecutorService] =
     Resource.make(Sync[F].delay(ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())))(ec => Sync[F].delay(ec.shutdown()))
 
