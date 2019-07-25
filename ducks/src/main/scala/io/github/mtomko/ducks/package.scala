@@ -1,8 +1,7 @@
 package io.github.mtomko
 
-import java.io.{BufferedReader, FileInputStream, InputStreamReader, PrintWriter}
+import java.io.PrintWriter
 import java.nio.file.Path
-import java.util.zip.GZIPInputStream
 
 import cats.effect.{ContextShift, Resource, Sync}
 import cats.syntax.apply._
@@ -26,46 +25,12 @@ package object ducks {
     s.fold(Map.empty[Barcode, Condition]) { case (m, (bc, cond)) => m + (bc -> cond) }
   }
 
-  def fastq[F[_]: Sync: ContextShift](p: Path)(implicit blockingEc: ExecutionContext): Stream[F, Fastq] = {
-    @inline
-    def gzipReader(p: Path): BufferedReader =
-      new BufferedReader(new InputStreamReader(new GZIPInputStream(new FileInputStream(p.toFile), 65536)))
-
-    @inline
-    def reader(p: Path): BufferedReader =
-      new BufferedReader(new InputStreamReader(new FileInputStream(p.toFile)), 65536)
-
-    val inputStreamResource: Resource[F, BufferedReader] = Resource.fromAutoCloseable {
-      Sync[F].delay {
-        if (isGzFile(p)) gzipReader(p)
-        else reader(p)
-      }
-    }
-
-    @inline
-    def fastqStream(r: BufferedReader): Stream[F, Fastq] =
-      Stream.unfoldEval(r) { s =>
-        ContextShift[F].evalOn(blockingEc) {
-          Sync[F].delay {
-            val l1 = s.readLine()
-            val l2 = s.readLine()
-            val l3 = s.readLine()
-            val l4 = s.readLine()
-            if (l4 == null) None
-            else Some((Fastq(l1, l2, l3, l4), s))
-          }
-        }
-      }
-
-    for {
-      s <- Stream.resource(inputStreamResource)
-      f <- fastqStream(s)
-    } yield f
-  }
+  def fastq[F[_]: Sync: ContextShift](path: Path)(implicit blockingEc: ExecutionContext): Stream[F, Fastq] =
+    stream.lines[F](path).through(stream.fastq)
 
   def fastqs[F[_]: Sync: ContextShift](p1: Path, p2: Path)(
       implicit blockingEc: ExecutionContext): Stream[F, (Fastq, Fastq)] =
-    fastq(p1).buffer(4096).zip(fastq(p2).buffer(4096))
+    fastq(p1).buffer(16384).zip(fastq(p2).buffer(16384))
 
   def write[F[_]: Sync: ContextShift](fastq1: Fastq, fastq2: Fastq, writer: (PrintWriter, PrintWriter))(
       implicit blockingEc: ExecutionContext): F[Unit] = {
