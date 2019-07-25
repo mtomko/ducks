@@ -14,9 +14,6 @@ object build {
     lazy val decline = "com.monovore" %% "decline" % "0.6.2"
     lazy val fs2Core = "co.fs2" %% "fs2-core" % "1.0.5"
     lazy val fs2Io = "co.fs2" %% "fs2-io" % "1.0.5"
-    lazy val log4s = "org.log4s" %% "log4s" % "1.8.2"
-    lazy val logbackCore = "ch.qos.logback" % "logback-core" % "1.2.3"
-    lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.3"
     lazy val kantanCsv = "com.nrinaudo" %% "kantan.csv" % "0.5.1"
 
     // test dependencies
