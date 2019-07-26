@@ -36,7 +36,8 @@ object Ducks extends IOApp {
       }
     }
 
-  def run[F[_]: Sync: ContextShift](args: Config): F[ExitCode] = runToStream(args).compile.drain.as(ExitCode.Success)
+  def run[F[_]: Sync: ContextShift](args: Config): F[ExitCode] =
+    runToStream(args).compile.drain.as(ExitCode.Success)
 
   def runToStream[F[_]: Sync: ContextShift](args: Config): Stream[F, Unit] =
     for {
@@ -49,5 +50,4 @@ object Ducks extends IOApp {
     } yield ()
 
   override def run(args: List[String]): IO[ExitCode] = command.parse(args).fold(help, run[IO])
-
 }

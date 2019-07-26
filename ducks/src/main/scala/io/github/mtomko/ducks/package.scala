@@ -1,6 +1,6 @@
 package io.github.mtomko
 
-import java.io.PrintWriter
+import java.io.Writer
 import java.nio.file.Path
 
 import cats.effect.{ContextShift, Resource, Sync}
@@ -29,15 +29,14 @@ package object ducks {
     stream.lines[F](path).through(stream.fastq)
 
   def fastqs[F[_]: Sync: ContextShift](p1: Path, p2: Path)(
-      implicit blockingEc: ExecutionContext): Stream[F, (Fastq, Fastq)] =
-    fastq(p1).buffer(16384).zip(fastq(p2).buffer(16384))
+      implicit blockingEc: ExecutionContext): Stream[F, (Fastq, Fastq)] = fastq(p1).zip(fastq(p2))
 
-  def write[F[_]: Sync: ContextShift](fastq1: Fastq, fastq2: Fastq, writer: (PrintWriter, PrintWriter))(
+  def write[F[_]: Sync: ContextShift](fastq1: Fastq, fastq2: Fastq, writer: (Writer, Writer))(
       implicit blockingEc: ExecutionContext): F[Unit] = {
 
-    def writeFastq(fastq: Fastq, writer: PrintWriter): Unit = {
-      val lines = fastq.id + "\n" + fastq.seq + "\n" + fastq.id2 + "\n" + fastq.qual
-      writer.println(lines)
+    def writeFastq(fastq: Fastq, writer: Writer): Unit = {
+      val lines = fastq.id + "\n" + fastq.seq + "\n" + fastq.id2 + "\n" + fastq.qual + "\n"
+      writer.write(lines)
     }
 
     val c1 = Sync[F].delay(writeFastq(fastq1, writer._1))

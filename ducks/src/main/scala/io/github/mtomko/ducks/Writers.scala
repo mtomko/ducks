@@ -11,15 +11,14 @@ import scala.concurrent.ExecutionContext
 final class Writers(conditions: Map[Barcode, Condition], outputDir: Path) extends Closeable {
   require(!conditions.values.exists(_ == Unmatched))
 
-  private[this] val resources: Map[Condition, (PrintWriter, PrintWriter)] = {
+  private[this] val resources: Map[Condition, (Writer, Writer)] =
     conditions.map { case (_, condition) =>
       condition -> makeWritersFor(condition, outputDir)
     }
-  }
-  private[this] val unmatched: (PrintWriter, PrintWriter) = makeWritersFor(Unmatched, outputDir)
 
-  def writer(b: Barcode): (PrintWriter, PrintWriter) =
-    conditions.get(b).flatMap(resources.get).getOrElse(unmatched)
+  private[this] val unmatched: (Writer, Writer) = makeWritersFor(Unmatched, outputDir)
+
+  def writer(b: Barcode): (Writer, Writer) = conditions.get(b).flatMap(resources.get).getOrElse(unmatched)
 
   override def close(): Unit = {
     resources.foreach {
@@ -41,9 +40,9 @@ object Writers {
 
   private[Writers] val Unmatched = Condition("unmatched")
 
-  private[Writers] def makeWritersFor(condition: Condition, outputDir: Path): (PrintWriter, PrintWriter) =
-    (new PrintWriter(new BufferedWriter(new FileWriter(condition.file(".sample", outputDir).toFile))),
-     new PrintWriter(new BufferedWriter(new FileWriter(condition.file(".construct", outputDir).toFile))))
+  private[Writers] def makeWritersFor(condition: Condition, outputDir: Path): (Writer, Writer) =
+    (new BufferedWriter(new FileWriter(condition.file(".sample", outputDir).toFile)),
+     new BufferedWriter(new FileWriter(condition.file(".construct", outputDir).toFile)))
 
   private[Writers] def flushAndClose(w: Writer): Unit = {
     w.flush()
