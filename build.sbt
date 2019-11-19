@@ -1,6 +1,6 @@
 import build._
 
-ThisBuild / scalaVersion     := "2.12.8"
+ThisBuild / scalaVersion     := "2.13.1"
 ThisBuild / organization     := "dev.mtomko"
 
 lazy val root = project.in(file("."))
@@ -14,9 +14,9 @@ lazy val ducks = project.in(file("ducks"))
       Seq(
         libraries.catsCore,
         libraries.catsEffect,
-        libraries.catsPar,
         libraries.console4cats,
         libraries.decline,
+        libraries.declineEffect,
         libraries.fs2Core,
         libraries.fs2Io,
         libraries.kantanCsv,

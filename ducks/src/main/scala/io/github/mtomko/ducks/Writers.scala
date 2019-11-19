@@ -3,17 +3,16 @@ package io.github.mtomko.ducks
 import java.io._
 import java.nio.file.Path
 
-import cats.effect.{ContextShift, Resource, Sync}
+import cats.effect.{Blocker, ContextShift, Resource, Sync}
 import io.github.mtomko.ducks.Writers._
-
-import scala.concurrent.ExecutionContext
 
 final class Writers(conditions: Map[Barcode, Condition], outputDir: Path) extends Closeable {
   require(!conditions.values.exists(_ == Unmatched))
 
   private[this] val resources: Map[Condition, (Writer, Writer)] =
-    conditions.map { case (_, condition) =>
-      condition -> makeWritersFor(condition, outputDir)
+    conditions.map {
+      case (_, condition) =>
+        condition -> makeWritersFor(condition, outputDir)
     }
 
   private[this] val unmatched: (Writer, Writer) = makeWritersFor(Unmatched, outputDir)
@@ -34,15 +33,15 @@ final class Writers(conditions: Map[Barcode, Condition], outputDir: Path) extend
 object Writers {
 
   def resource[F[_]: Sync: ContextShift](conditions: Map[Barcode, Condition], outputDir: Path)(
-      implicit blockingEc: ExecutionContext): Resource[F, Writers] =
-    Resource.make(Sync[F].delay(new Writers(conditions, outputDir)))(w =>
-      ContextShift[F].evalOn(blockingEc)(Sync[F].delay(w.close())))
+      implicit blocker: Blocker): Resource[F, Writers] =
+    Resource.make(Sync[F].delay(new Writers(conditions, outputDir)))(w => blocker.blockOn(Sync[F].delay(w.close())))
 
   private[Writers] val Unmatched = Condition("unmatched")
 
   private[Writers] def makeWritersFor(condition: Condition, outputDir: Path): (Writer, Writer) =
-    (new BufferedWriter(new FileWriter(condition.file(".sample", outputDir).toFile)),
-     new BufferedWriter(new FileWriter(condition.file(".construct", outputDir).toFile)))
+    (
+      new BufferedWriter(new FileWriter(condition.file(".sample", outputDir).toFile)),
+      new BufferedWriter(new FileWriter(condition.file(".construct", outputDir).toFile)))
 
   private[Writers] def flushAndClose(w: Writer): Unit = {
     w.flush()

@@ -2,20 +2,20 @@ package io.github.mtomko.ducks
 
 import java.nio.file.Path
 
-import cats.effect.{ContextShift, Sync}
+import cats.effect.{Blocker, Concurrent, ContextShift, Sync}
 import fs2.{compress, io, text, Pipe, Stream}
-
-import scala.concurrent.ExecutionContext
 
 package object stream {
 
-  def lines[F[_]: Sync: ContextShift](p: Path)(implicit blockingEc: ExecutionContext): Stream[F, String] = {
+  def lines[F[_]: Sync: Concurrent: ContextShift](p: Path)(implicit blocker: Blocker): Stream[F, String] = {
     val byteStream: Stream[F, Byte] =
-      if (isGzFile(p)) io.file.readAll[F](p, blockingEc, 65536).through(compress.gunzip(65536))
-      else io.file.readAll[F](p, blockingEc, 65536)
+      if (isGzFile(p)) io.file.readAll[F](p, blocker, 65536).through(compress.gunzip(65536))
+      else io.file.readAll[F](p, blocker, 65536)
     byteStream
       .through(text.utf8Decode)
+      .prefetchN(4096)
       .through(text.lines)
+      .prefetchN(1024)
   }
 
   def fastq[F[_]]: Pipe[F, String, Fastq] =
