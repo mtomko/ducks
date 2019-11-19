@@ -8,6 +8,7 @@ lazy val root = project.in(file("."))
   .disablePlugins(AssemblyPlugin)
 
 lazy val ducks = project.in(file("ducks"))
+  .enablePlugins(BuildInfoPlugin)
   .settings(
     name := "ducks",
     libraryDependencies ++=
@@ -22,7 +23,9 @@ lazy val ducks = project.in(file("ducks"))
         libraries.kantanCsv,
         libraries.scalaTest % Test
       ),
-      addCompilerPlugin(libraries.betterMonadicFor)
+    buildInfoKeys := Seq[BuildInfoKey](name, version),
+    buildInfoPackage := "io.github.mtomko.ducks",
+    addCompilerPlugin(libraries.betterMonadicFor)
   )
 
 lazy val bench = project.in(file("bench"))

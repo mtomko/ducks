@@ -12,7 +12,7 @@ object Ducks
   extends CommandIOApp(
     name = "ducks",
     header = "Demultiplexes FASTQ files based on conditions",
-    version = "0.0.1"
+    version = BuildInfo.version
   ) {
 
   private[this] val conditionsFileOpt = Opts.option[Path]("conditions", short = "c", help = "The conditions file")
