@@ -26,10 +26,13 @@ object Ducks
   private[this] val outputDirectoryOpt =
     Opts.option[Path]("output-dir", short = "o", help = "The output directory").withDefault(Paths.get("."))
 
-  private[this] def run[F[_]: Sync: Concurrent: ContextShift](args: Config): F[ExitCode] =
-    runToStream(args).compile.drain.as(ExitCode.Success)
+  override def main: Opts[IO[ExitCode]] =
+    (conditionsFileOpt, dmuxFastqOpt, dataFastqOpt, outputDirectoryOpt).mapN {
+      (conditionsFile, dmuxFastq, dataFastq, outputDir) =>
+        run[IO](Config(conditionsFile, dmuxFastq, dataFastq, outputDir)).compile.drain.as(ExitCode.Success)
+    }
 
-  private[this] def runToStream[F[_]: Sync: Concurrent: ContextShift](args: Config): Stream[F, Unit] =
+  private[this] def run[F[_]: Sync: Concurrent: ContextShift](args: Config): Stream[F, Unit] =
     for {
       implicit0(blocker: Blocker) <- Stream.resource(Blocker[F])
       conds <- conditions[F](args.conditionsFile)
@@ -38,11 +41,5 @@ object Ducks
       writer <- Stream.emit(writers.writer(Barcode(dmf.seq)))
       _ <- Stream.eval(write[F](dmf, daf, writer))
     } yield ()
-
-  override def main: Opts[IO[ExitCode]] =
-    (conditionsFileOpt, dmuxFastqOpt, dataFastqOpt, outputDirectoryOpt).mapN {
-      (conditionsFile, dmuxFastq, dataFastq, outputDir) =>
-        run[IO](Config(conditionsFile, dmuxFastq, dataFastq, outputDir))
-    }
 
 }
