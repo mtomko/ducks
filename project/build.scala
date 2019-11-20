@@ -15,6 +15,7 @@ object build {
     lazy val fs2Core = "co.fs2" %% "fs2-core" % "2.1.0"
     lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.1.0"
     lazy val kantanCsv = "com.nrinaudo" %% "kantan.csv" % "0.6.0"
+    lazy val newtype = "io.estatico" %% "newtype" % "0.4.3"
 
     // test dependencies
     lazy val scalaTest = "org.scalatest" %% "scalatest" % "3.0.8"

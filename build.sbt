@@ -21,8 +21,10 @@ lazy val ducks = project.in(file("ducks"))
         libraries.fs2Core,
         libraries.fs2Io,
         libraries.kantanCsv,
+        libraries.newtype,
         libraries.scalaTest % Test
       ),
+    scalacOptions += "-Ymacro-annotations",
     buildInfoKeys := Seq[BuildInfoKey](name, version),
     buildInfoPackage := "io.github.mtomko.ducks",
     addCompilerPlugin(libraries.betterMonadicFor)
