@@ -1,11 +1,9 @@
 package io.github.mtomko
 
-import java.io.Writer
 import java.net.URLEncoder
 import java.nio.file.Path
 
 import cats.effect.{Blocker, Concurrent, ContextShift, Resource, Sync}
-import cats.syntax.apply._
 import fs2.Stream
 import io.estatico.newtype.macros.newtype
 import kantan.csv._
@@ -36,19 +34,6 @@ package object ducks {
   def fastqs[F[_]: Sync: Concurrent: ContextShift](p1: Path, p2: Path)(
       implicit blocker: Blocker): Stream[F, (Fastq, Fastq)] =
     fastq(p1).zip(fastq(p2))
-
-  def write[F[_]: Sync: ContextShift](fastq1: Fastq, fastq2: Fastq, writer: (Writer, Writer))(
-      implicit blocker: Blocker): F[Unit] = {
-
-    def writeFastq(fastq: Fastq, writer: Writer): Unit = {
-      val lines = fastq.id + "\n" + fastq.seq + "\n" + fastq.id2 + "\n" + fastq.qual + "\n"
-      writer.write(lines)
-    }
-
-    val c1 = Sync[F].delay(writeFastq(fastq1, writer._1))
-    val c2 = Sync[F].delay(writeFastq(fastq2, writer._2))
-    blocker.blockOn(c1 *> c2)
-  }
 
   def isGzFile(p: Path): Boolean = p.getFileName.toString.toLowerCase.endsWith(".gz")
 

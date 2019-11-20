@@ -7,6 +7,7 @@ import cats.implicits._
 import com.monovore.decline.Opts
 import com.monovore.decline.effect.CommandIOApp
 import fs2.Stream
+import fs2.{io, text}
 
 object Ducks
   extends CommandIOApp(
@@ -32,15 +33,23 @@ object Ducks
         run[IO](Config(conditionsFile, dmuxFastq, dataFastq, outputDir)).compile.drain.as(ExitCode.Success)
     }
 
-  private[this] def run[F[_]: Sync: Concurrent: ContextShift](args: Config): Stream[F, Unit] =
-    for {
-      implicit0(blocker: Blocker) <- Stream.resource(Blocker[F])
-      conds <- conditions[F](args.conditionsFile)
-      writers <- Stream.resource(Writers.resource(conds, args.outputDirectory))
-      _ <- Stream.resource(Writers.resource(conds, args.outputDirectory))
-      (dmf, daf) <- fastqs[F](args.fastq1, args.fastq2)
-      writer <- Stream.emit(writers.writer(Barcode(dmf.seq)))
-      _ <- Stream.eval(write[F](dmf, daf, writer))
-    } yield ()
+  def selector[F[_]: Sync](conds: Map[Barcode, Condition])(t: (Fastq, Fastq)): F[Condition] = Sync[F].delay {
+    conds.getOrElse(Barcode(t._1.seq), Condition("unmapped"))
+  }
+
+  private[this] def run[F[_]: Sync: Concurrent: ContextShift](args: Config): Stream[F, Unit] = {
+    val s =
+      for {
+        implicit0(blocker: Blocker) <- Stream.resource(Blocker[F])
+        conds <- conditions[F](args.conditionsFile)
+        (condition, tupleStream) <- fastqs[F](args.fastq1, args.fastq2).through(stream.groupBy(selector[F](conds)))
+      } yield {
+        tupleStream
+          .map(_._2.toString())
+          .through(text.utf8Encode)
+          .through(io.file.writeAll(condition.file(".data", args.outputDirectory), blocker))
+      }
+    s.parJoinUnbounded
+  }
 
 }
