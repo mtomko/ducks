@@ -12,10 +12,9 @@ package object stream {
       if (isGzFile(p)) io.file.readAll[F](p, blocker, 65536).through(compress.gunzip(65536))
       else io.file.readAll[F](p, blocker, 65536)
     byteStream
+      .prefetchN(8192)
       .through(text.utf8Decode)
-      .prefetchN(4096)
       .through(text.lines)
-      .prefetchN(1024)
   }
 
   def fastq[F[_]]: Pipe[F, String, Fastq] =

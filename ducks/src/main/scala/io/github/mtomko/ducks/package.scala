@@ -25,7 +25,7 @@ package object ducks {
     stream.lines[F](path).through(stream.fastq)
 
   def fastqs[F[_]: Sync: Concurrent: ContextShift](p1: Path, p2: Path)(implicit blocker: Blocker): Stream[F, (Fastq, Fastq)] =
-    fastq(p1).prefetch.zip(fastq(p2).prefetch)
+    fastq(p1).zip(fastq(p2))
 
   def write[F[_]: Sync: ContextShift](fastq1: Fastq, fastq2: Fastq, writer: (Writer, Writer))(
       implicit blocker: Blocker): F[Unit] = {

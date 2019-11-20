@@ -37,6 +37,7 @@ object Ducks
       implicit0(blocker: Blocker) <- Stream.resource(Blocker[F])
       conds <- conditions[F](args.conditionsFile)
       writers <- Stream.resource(Writers.resource(conds, args.outputDirectory))
+      _ <- Stream.resource(Writers.resource(conds, args.outputDirectory))
       (dmf, daf) <- fastqs[F](args.fastq1, args.fastq2)
       writer <- Stream.emit(writers.writer(Barcode(dmf.seq)))
       _ <- Stream.eval(write[F](dmf, daf, writer))
