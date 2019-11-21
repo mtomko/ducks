@@ -44,10 +44,10 @@ object Ducks
         conds <- conditions[F](args.conditionsFile)
         (condition, tupleStream) <- fastqs[F](args.fastq1, args.fastq2).through(stream.groupBy(selector[F](conds)))
       } yield {
-        tupleStream
-          .map(_._2.toString())
-          .through(text.utf8Encode)
-          .through(io.file.writeAll(condition.file(".data", args.outputDirectory), blocker))
+        tupleStream.broadcastTo(
+          _.map(_._1.toString).through(text.utf8Encode).through(io.file.writeAll(condition.file(".dmux", args.outputDirectory), blocker)),
+          _.map(_._2.toString).through(text.utf8Encode).through(io.file.writeAll(condition.file(".data", args.outputDirectory), blocker)),
+        )
       }
     s.parJoinUnbounded
   }
