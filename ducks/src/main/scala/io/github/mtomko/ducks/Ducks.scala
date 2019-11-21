@@ -45,20 +45,16 @@ object Ducks
         (condition, tupleStream) <- fastqs[F](args.fastq1, args.fastq2).through(stream.groupBy(selector[F](conds)))
       } yield {
         tupleStream.broadcastTo(
-          printFastqs[F](args, blocker, condition, ".dmux", _._1),
-          printFastqs[F](args, blocker, condition, ".data", _._2)
+          printFastqs[F](_._1, condition.file(".dmux", args.outputDirectory)),
+          printFastqs[F](_._2, condition.file(".data", args.outputDirectory))
         )
       }
     s.parJoinUnbounded
   }
 
-  private[this] def printFastqs[F[_]: Sync: Concurrent: ContextShift](
-      args: Config,
-      blocker: Blocker,
-      condition: Condition,
-      infix: String,
-      elem: ((Fastq, Fastq)) => Fastq): Pipe[F, (Fastq, Fastq), Unit] =
+  private[this] def printFastqs[F[_]: Sync: Concurrent: ContextShift](elem: ((Fastq, Fastq)) => Fastq, path: Path)(
+      implicit blocker: Blocker): Pipe[F, (Fastq, Fastq), Unit] =
     _.map(t => elem(t).toString)
       .through(text.utf8Encode)
-      .through(io.file.writeAll(condition.file(infix, args.outputDirectory), blocker))
+      .through(io.file.writeAll(path, blocker))
 }
