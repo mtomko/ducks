@@ -6,8 +6,7 @@ import cats.effect.{Blocker, Concurrent, ContextShift, ExitCode, IO, Sync}
 import cats.implicits._
 import com.monovore.decline.Opts
 import com.monovore.decline.effect.CommandIOApp
-import fs2.Stream
-import fs2.{io, text}
+import fs2.{io, text, Pipe, Stream}
 
 object Ducks
   extends CommandIOApp(
@@ -33,23 +32,33 @@ object Ducks
         run[IO](Config(conditionsFile, dmuxFastq, dataFastq, outputDir)).compile.drain.as(ExitCode.Success)
     }
 
-  def selector[F[_]: Sync](conds: Map[Barcode, Condition])(t: (Fastq, Fastq)): F[Condition] = Sync[F].delay {
-    conds.getOrElse(Barcode(t._1.seq), Condition("unmapped"))
-  }
+  private[this] def selector[F[_]: Sync](conds: Map[Barcode, Condition])(t: (Fastq, Fastq)): F[Condition] =
+    Sync[F].delay {
+      conds.getOrElse(Barcode(t._1.seq), Condition("unmapped"))
+    }
 
   private[this] def run[F[_]: Sync: Concurrent: ContextShift](args: Config): Stream[F, Unit] = {
-    val s =
+    val s: Stream[F, Stream[F, Unit]] =
       for {
         implicit0(blocker: Blocker) <- Stream.resource(Blocker[F])
         conds <- conditions[F](args.conditionsFile)
         (condition, tupleStream) <- fastqs[F](args.fastq1, args.fastq2).through(stream.groupBy(selector[F](conds)))
       } yield {
         tupleStream.broadcastTo(
-          _.map(_._1.toString).through(text.utf8Encode).through(io.file.writeAll(condition.file(".dmux", args.outputDirectory), blocker)),
-          _.map(_._2.toString).through(text.utf8Encode).through(io.file.writeAll(condition.file(".data", args.outputDirectory), blocker)),
+          printFastqs[F](args, blocker, condition, ".dmux", _._1),
+          printFastqs[F](args, blocker, condition, ".data", _._2)
         )
       }
     s.parJoinUnbounded
   }
 
+  private[this] def printFastqs[F[_]: Sync: Concurrent: ContextShift](
+      args: Config,
+      blocker: Blocker,
+      condition: Condition,
+      infix: String,
+      elem: ((Fastq, Fastq)) => Fastq): Pipe[F, (Fastq, Fastq), Unit] =
+    _.map(t => elem(t).toString)
+      .through(text.utf8Encode)
+      .through(io.file.writeAll(condition.file(infix, args.outputDirectory), blocker))
 }
