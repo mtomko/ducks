@@ -18,11 +18,11 @@ package object ducks {
     def file(suffix: String, outputDir: Path): Path = outputDir.resolve(filename(suffix))
   }
 
-  def conditions[F[_]: Sync: ContextShift](path: Path): Stream[F, Map[Barcode, Condition]] = {
+  def conditions[F[_]: Sync: ContextShift](path: Path)(implicit blocker: Blocker): Stream[F, Map[Barcode, Condition]] = {
     val s: Stream[F, (Barcode, Condition)] =
       for {
         rdr <- Stream.resource(Resource.fromAutoCloseable(Sync[F].delay(path.asCsvReader[(String, String)](rfc))))
-        row <- Stream.fromIterator(rdr.toIterable.iterator)
+        row <- Stream.fromBlockingIterator(blocker, rdr.toIterable.iterator)
         (bc, cond) <- Stream.fromEither(row)
       } yield (Barcode(bc), Condition(cond))
     s.fold(Map.empty[Barcode, Condition]) { case (m, (bc, cond)) => m + (bc -> cond) }
