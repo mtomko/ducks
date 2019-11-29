@@ -1,7 +1,7 @@
 import build._
 
 ThisBuild / scalaVersion     := "2.13.1"
-ThisBuild / organization     := "dev.mtomko"
+ThisBuild / organization     := "io.github.mtomko"
 
 lazy val root = project.in(file("."))
   .aggregate(ducks, bench)
