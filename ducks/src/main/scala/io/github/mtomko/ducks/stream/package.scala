@@ -9,14 +9,24 @@ import fs2.{compress, io, text, Pipe, Stream}
 import fs2.concurrent.Queue
 
 package object stream {
+  private[this] val BufferSize = 65536
 
   def lines[F[_]: Sync: Concurrent: ContextShift](p: Path)(implicit blocker: Blocker): Stream[F, String] = {
     val byteStream: Stream[F, Byte] =
-      if (isGzFile(p)) io.file.readAll[F](p, blocker, 65536).through(compress.gunzip(65536))
-      else io.file.readAll[F](p, blocker, 65536)
+      if (isGzFile(p)) io.file.readAll[F](p, blocker, BufferSize).through(compress.gunzip(BufferSize))
+      else io.file.readAll[F](p, blocker, BufferSize)
     byteStream
       .through(text.utf8Decode)
       .through(text.lines)
+  }
+
+  def writeFile[F[_]: Sync: Concurrent: ContextShift](p: Path, zip: Boolean)(
+      implicit blocker: Blocker
+  ): Pipe[F, Byte, Unit] = { in =>
+    p.getFileName()
+    p.getParent()
+    val s = if (zip) in.through(compress.gzip(BufferSize)) else in
+    s.through(io.file.writeAll(p, blocker))
   }
 
   def fastq[F[_]]: Pipe[F, String, Fastq] =
@@ -45,5 +55,4 @@ package object stream {
       }.unNone.onFinalize(cleanup)
     }
   }
-
 }

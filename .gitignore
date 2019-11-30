@@ -9,4 +9,4 @@ src_managed/
 .ensime
 .bloop
 .metals
-test-data/output
+test-data/
