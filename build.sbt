@@ -1,6 +1,6 @@
 import build._
 
-ThisBuild / scalaVersion     := "2.13.1"
+ThisBuild / scalaVersion     := "2.13.4"
 ThisBuild / organization     := "io.github.mtomko"
 
 lazy val root = project.in(file("."))
@@ -22,7 +22,8 @@ lazy val ducks = project.in(file("ducks"))
         libraries.fs2Io,
         libraries.kantanCsv,
         libraries.newtype,
-        libraries.scalaTest % Test
+        libraries.munit % Test,
+        libraries.munitScalaCheck % Test
       ),
     scalacOptions += "-Ymacro-annotations",
     buildInfoKeys := Seq[BuildInfoKey](name, version),

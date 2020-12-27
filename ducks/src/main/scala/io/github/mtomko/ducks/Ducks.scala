@@ -45,10 +45,13 @@ object Ducks
         implicit0(blocker: Blocker) <- Stream.resource(Blocker[F])
         conds <- conditions[F](args.conditionsFile)
         (condition, tupleStream) <- fastqs[F](args.fastq1, args.fastq2).through(stream.groupBy(selector[F](conds)))
-      } yield tupleStream
-        .map(_._2.toString)
-        .through(text.utf8Encode)
-        .through(stream.writeFile(condition.file(args.outputDirectory, args.zipOutput), args.zipOutput))
+      } yield {
+        val outputFile = condition.file(args.outputDirectory, args.zipOutput)
+        tupleStream
+          .map(_._2.toString)
+          .through(text.utf8Encode)
+          .through(stream.writeFile(outputFile, args.zipOutput))
+      }
     s.parJoinUnbounded
   }
 }

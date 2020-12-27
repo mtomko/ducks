@@ -10,3 +10,6 @@ src_managed/
 .bloop
 .metals
 test-data/
+.bsp/
+.vscode/
+metals.sbt

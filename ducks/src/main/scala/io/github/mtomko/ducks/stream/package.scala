@@ -5,7 +5,7 @@ import java.nio.file.Path
 import cats.effect.{Blocker, Concurrent, ContextShift, Sync}
 import cats.effect.concurrent.Ref
 import cats.implicits._
-import fs2.{compress, io, text, Pipe, Stream}
+import fs2.{compression, io, text, Pipe, Stream}
 import fs2.concurrent.Queue
 
 package object stream {
@@ -13,7 +13,7 @@ package object stream {
 
   def lines[F[_]: Sync: Concurrent: ContextShift](p: Path)(implicit blocker: Blocker): Stream[F, String] = {
     val byteStream: Stream[F, Byte] =
-      if (isGzFile(p)) io.file.readAll[F](p, blocker, BufferSize).through(compress.gunzip(BufferSize))
+      if (isGzFile(p)) io.file.readAll[F](p, blocker, BufferSize).through(compression.gunzip[F](BufferSize)).flatMap(g => g.content)
       else io.file.readAll[F](p, blocker, BufferSize)
     byteStream
       .through(text.utf8Decode)
@@ -25,7 +25,7 @@ package object stream {
   ): Pipe[F, Byte, Unit] = { in =>
     p.getFileName()
     p.getParent()
-    val s = if (zip) in.through(compress.gzip(BufferSize)) else in
+    val s = if (zip) in.through(compression.gzip(BufferSize)) else in
     s.through(io.file.writeAll(p, blocker))
   }
 
