@@ -23,8 +23,6 @@ package object stream {
   def writeFile[F[_]: Sync: Concurrent: ContextShift](p: Path, zip: Boolean)(
       implicit blocker: Blocker
   ): Pipe[F, Byte, Unit] = { in =>
-    p.getFileName()
-    p.getParent()
     val s = if (zip) in.through(compression.gzip(BufferSize)) else in
     s.through(io.file.writeAll(p, blocker))
   }
