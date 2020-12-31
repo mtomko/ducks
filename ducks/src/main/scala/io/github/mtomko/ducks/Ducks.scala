@@ -2,10 +2,10 @@ package io.github.mtomko.ducks
 
 import cats.effect.concurrent.Ref
 import cats.effect.{Blocker, Clock, Concurrent, ContextShift, ExitCode, IO, Sync}
-import cats.implicits._
+import cats.syntax.all._
 import com.monovore.decline.Opts
 import com.monovore.decline.effect.CommandIOApp
-import fs2.{Stream, text}
+import fs2.{text, Stream}
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
@@ -18,8 +18,7 @@ object Ducks
     header = "Demultiplexes FASTQ files based on conditions",
     version = BuildInfo.version
   ) {
-
-  implicit def unsafeLogger[F[_]: Sync] = Slf4jLogger.getLogger[F]  
+  implicit private[this] def unsafeLogger[F[_]: Sync] = Slf4jLogger.getLogger[F]
 
   private[this] val conditionsFileOpt = Opts.option[Path]("conditions", short = "c", help = "The conditions file")
 
@@ -53,20 +52,7 @@ object Ducks
         count <- Stream.eval(Ref.of(0))
         conds <- conditions[F](args.conditionsFile)
         t0 <- Stream.eval(Clock[F].realTime(TimeUnit.MILLISECONDS))
-        fqs = fastqs[F](args.fastq1, args.fastq2)
-          .chunkN(100000, true)
-          .evalTap { chunk =>
-            val ncf = count.modify { c =>
-              val nc = c + chunk.size
-              (nc, nc)
-            }
-            (Clock[F].realTime(TimeUnit.MILLISECONDS), ncf).tupled.flatMap { case (tn, nc) =>
-              val dt = tn - t0
-              val rate = nc.toFloat / dt
-              Logger[F].info(s"processed $nc reads ($rate reads/ms)")
-            }
-          }
-          .flatMap(Stream.chunk)
+        fqs = logChunkN(fastqs[F](args.fastq1, args.fastq2), 100000, t0, count)
         (condition, tupleStream) <- fqs.through(stream.groupBy(selector[F](conds)))
       } yield {
         val outputFile = condition.file(args.outputDirectory, args.zipOutput)
@@ -77,4 +63,25 @@ object Ducks
       }
     s.parJoinUnbounded
   }
+
+  private[this] def logChunkN[F[_]: Sync: Clock, A](
+      s: Stream[F, A],
+      n: Int,
+      t0: Long,
+      count: Ref[F, Int]
+  ): Stream[F, A] =
+    s.chunkN(n, allowFewer = true)
+      .evalTap { chunk =>
+        val ncf = count.modify { c =>
+          val nc = c + chunk.size
+          (nc, nc)
+        }
+        (Clock[F].realTime(TimeUnit.MILLISECONDS), ncf).tupled.flatMap {
+          case (tn, nc) =>
+            val dt = tn - t0
+            val avg = nc.toFloat / dt
+            Logger[F].info(s"processed $nc reads ($avg reads/ms)")
+        }
+      }
+      .flatMap(Stream.chunk)
 }

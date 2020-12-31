@@ -5,7 +5,10 @@
       <pattern>[%thread] %highlight(%-5level) %cyan(%logger{15}) - %msg %n</pattern>
     </encoder>
   </appender>
-  <root level="INFO">
+    <appender name="ASYNC" class="ch.qos.logback.classic.AsyncAppender">
     <appender-ref ref="STDOUT" />
+  </appender>
+  <root level="INFO">
+    <appender-ref ref="ASYNC" />
   </root>
 </configuration>

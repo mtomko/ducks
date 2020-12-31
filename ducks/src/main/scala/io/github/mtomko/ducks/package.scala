@@ -19,7 +19,7 @@ package object ducks {
   }
 
   def conditions[F[_]: Sync: ContextShift](
-    path: Path
+      path: Path
   )(implicit blocker: Blocker): Stream[F, Map[Barcode, Condition]] = {
     val s: Stream[F, (Barcode, Condition)] =
       for {
@@ -31,10 +31,10 @@ package object ducks {
   }
 
   def fastq[F[_]: Sync: Concurrent: ContextShift](path: Path)(implicit blocker: Blocker): Stream[F, Fastq] =
-    stream.lines[F](path).through(stream.fastq)
+    stream.lines[F](path).prefetchN(128).through(stream.fastq)
 
-  def fastqs[F[_]: Sync: Concurrent: ContextShift](p1: Path, p2: Path)(
-      implicit blocker: Blocker
+  def fastqs[F[_]: Sync: Concurrent: ContextShift](p1: Path, p2: Path)(implicit
+      blocker: Blocker
   ): Stream[F, (Fastq, Fastq)] =
     fastq(p1).zip(fastq(p2))
 

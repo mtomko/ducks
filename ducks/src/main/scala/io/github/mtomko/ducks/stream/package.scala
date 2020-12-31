@@ -4,24 +4,28 @@ import java.nio.file.Path
 
 import cats.effect.{Blocker, Concurrent, ContextShift, Sync}
 import cats.effect.concurrent.Ref
-import cats.implicits._
+import cats.syntax.all._
 import fs2.{compression, io, text, Pipe, Stream}
 import fs2.concurrent.Queue
 
 package object stream {
-  private[this] val BufferSize = 65536
+  private[this] val BufferSize = 8192
 
   def lines[F[_]: Sync: Concurrent: ContextShift](p: Path)(implicit blocker: Blocker): Stream[F, String] = {
     val byteStream: Stream[F, Byte] =
-      if (isGzFile(p)) io.file.readAll[F](p, blocker, BufferSize).through(compression.gunzip[F](BufferSize)).flatMap(g => g.content)
+      if (isGzFile(p))
+        io.file
+          .readAll[F](p, blocker, BufferSize)
+          .through(compression.gunzip[F](BufferSize))
+          .flatMap(g => g.content)
       else io.file.readAll[F](p, blocker, BufferSize)
     byteStream
       .through(text.utf8Decode)
       .through(text.lines)
   }
 
-  def writeFile[F[_]: Sync: Concurrent: ContextShift](p: Path, zip: Boolean)(
-      implicit blocker: Blocker
+  def writeFile[F[_]: Sync: Concurrent: ContextShift](p: Path, zip: Boolean)(implicit
+      blocker: Blocker
   ): Pipe[F, Byte, Unit] = { in =>
     val s = if (zip) in.through(compression.gzip(BufferSize)) else in
     s.through(io.file.writeAll(p, blocker))

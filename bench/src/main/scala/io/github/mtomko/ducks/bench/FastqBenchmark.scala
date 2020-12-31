@@ -12,7 +12,7 @@ import org.openjdk.jmh.annotations._
 class FastqBenchmark {
 
   @inline
-  private[this] final def baseline10000: Stream[Pure, String] = Stream("id", "seq", "id2", "qual").repeat.take(10000)
+  final private[this] def baseline10000: Stream[Pure, String] = Stream("id", "seq", "id2", "qual").repeat.take(10000)
 
   @Benchmark
   @OperationsPerInvocation(10000)
