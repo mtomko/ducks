@@ -20,18 +20,18 @@ package object ducks {
 
   def conditions[F[_]: Sync: ContextShift](
       path: Path
-  )(implicit blocker: Blocker): Stream[F, Map[Barcode, Condition]] = {
+  )(implicit blocker: Blocker): F[Map[Barcode, Condition]] = {
     val s: Stream[F, (Barcode, Condition)] =
       for {
         rdr <- Stream.resource(Resource.fromAutoCloseable(Sync[F].delay(path.asCsvReader[(String, String)](rfc))))
         row <- Stream.fromBlockingIterator(blocker, rdr.toIterable.iterator)
         (bc, cond) <- Stream.fromEither(row)
       } yield (Barcode(bc), Condition(cond))
-    s.fold(Map.empty[Barcode, Condition]) { case (m, (bc, cond)) => m + (bc -> cond) }
+    s.fold(Map.empty[Barcode, Condition]) { case (m, (bc, cond)) => m + (bc -> cond) }.compile.lastOrError
   }
 
   def fastq[F[_]: Sync: Concurrent: ContextShift](path: Path)(implicit blocker: Blocker): Stream[F, Fastq] =
-    stream.lines[F](path).prefetchN(128).through(stream.fastq)
+    stream.lines[F](path).prefetchN(16).through(stream.fastq)
 
   def fastqs[F[_]: Sync: Concurrent: ContextShift](p1: Path, p2: Path)(implicit
       blocker: Blocker
