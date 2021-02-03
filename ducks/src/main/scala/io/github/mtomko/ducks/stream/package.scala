@@ -1,11 +1,10 @@
 package io.github.mtomko.ducks
 
 import java.nio.file.Path
-
 import cats.effect.{Blocker, Concurrent, ContextShift, Sync}
 import cats.effect.concurrent.Ref
 import cats.syntax.all._
-import fs2.{compression, io, text, Pipe, Stream}
+import fs2.{Chunk, Pipe, Stream, compression, io, text}
 import fs2.concurrent.Queue
 
 package object stream {
@@ -20,7 +19,7 @@ package object stream {
           .flatMap(g => g.content)
       else io.file.readAll[F](p, blocker, BufferSize)
     byteStream
-      .through(text.utf8Decode)
+      .mapChunks(c => Chunk(new String(c.toBytes.toArray, "ASCII")))
       .through(text.lines)
   }
 

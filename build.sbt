@@ -23,8 +23,8 @@ lazy val libraries = new {
   lazy val slf4j = "org.slf4j" % "slf4j-api" % "1.7.30"
 
   // test dependencies
-  lazy val munit = "org.scalameta" %% "munit" % "0.7.20"
-  lazy val munitScalaCheck = "org.scalameta" %% "munit-scalacheck" % "0.7.20"
+  lazy val munit = "org.scalameta" %% "munit" % "0.7.21"
+  lazy val munitScalaCheck = "org.scalameta" %% "munit-scalacheck" % "0.7.21"
 }
 
 lazy val root = project

@@ -5,10 +5,11 @@ import cats.effect.{Blocker, Clock, Concurrent, ContextShift, ExitCode, IO, Sync
 import cats.syntax.all._
 import com.monovore.decline.Opts
 import com.monovore.decline.effect.CommandIOApp
-import fs2.{text, Stream}
+import fs2.{Stream, text}
 import io.chrisdavenport.log4cats.Logger
 import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
 
+import java.nio.charset.Charset
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.TimeUnit
 
@@ -40,19 +41,18 @@ object Ducks
         run[IO](Config(conditionsFile, dmuxFastq, dataFastq, outputDir, zipOutput)).as(ExitCode.Success)
     }
 
-  private[this] def selector[F[_]: Sync](conds: Map[Barcode, Condition])(t: (Fastq, Fastq)): F[Condition] =
-    Sync[F].delay {
-      conds.getOrElse(Barcode(t._1.seq), Condition("unmapped"))
-    }
-
   private[this] def run[F[_]: Sync: Clock: Concurrent: ContextShift](args: Config): F[Unit] =
     Blocker[F].use { implicit blocker =>
-      Ref.of(0).flatMap { count =>
-        conditions(args.conditionsFile).flatMap { conds =>
+      conditions(args.conditionsFile).flatMap { conds =>
+        def selector(t: (Fastq, Fastq)): F[Condition] =
+          Sync[F].delay(conds.getOrElse(t._1.seq, Condition("unmapped")))
+
+        Ref.of(0).flatMap { count =>
           Clock[F].realTime(TimeUnit.MILLISECONDS).flatMap { t0 =>
-            val fqs = logChunkN(fastqs[F](args.fastq1, args.fastq2), 100, t0, count).prefetchN(16)
+            val fqs = logChunkN(fastqs[F](args.fastq1, args.fastq2), 100000, t0, count)
             fqs
-              .through(stream.groupBy(selector[F](conds)))
+              .prefetchN(16)
+              .through(stream.groupBy(selector))
               .map {
                 case (condition, tupleStream) =>
                   writeTupleStream(condition.file(args.outputDirectory, args.zipOutput), args.zipOutput, tupleStream)
@@ -65,6 +65,8 @@ object Ducks
       }
     }
 
+  private[this] val ASCII = Charset.forName("ASCII")
+
   private[this] def writeTupleStream[F[_]: Sync: Concurrent: ContextShift](
       outputFile: Path,
       zipOutput: Boolean,
@@ -72,7 +74,7 @@ object Ducks
   )(implicit b: Blocker): Stream[F, Unit] =
     tupleStream
       .map(_._2.toString)
-      .through(text.utf8Encode)
+      .through(text.encode(ASCII))
       .through(stream.writeFile(outputFile, zipOutput))
 
   private[this] def logChunkN[F[_]: Sync: Clock: Concurrent, A](
@@ -81,19 +83,19 @@ object Ducks
       t0: Long,
       count: Ref[F, Int]
   ): Stream[F, A] =
-    s.chunkN(n, allowFewer = true)
-      .prefetchN(4)
+    s.chunkN(100, allowFewer = true)
+      //.prefetchN(4)
       .evalTap { chunk =>
-        val ncf = count.modify { c =>
-          val nc = c + chunk.size
-          (nc, nc)
+        val updatedCountF = count.modify { prevCount =>
+          val nextCount = prevCount + chunk.size
+          (nextCount, nextCount)
         }
-        ncf.flatMap { nc =>
-          if (nc % 100000 === 0)
+        updatedCountF.flatMap { currentCount =>
+          if (currentCount % n === 0)
             Clock[F].realTime(TimeUnit.MILLISECONDS).flatMap { tn =>
               val dt = tn - t0
-              val avg = nc.toFloat / dt
-              Logger[F].info(s"processed $nc reads ($avg reads/ms)")
+              val avg = currentCount.toFloat / dt
+              Logger[F].info(s"processed $currentCount reads ($avg reads/ms)")
             }
           else ().pure[F]
         }
