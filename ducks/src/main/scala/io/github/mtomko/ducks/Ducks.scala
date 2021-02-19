@@ -19,7 +19,7 @@ object Ducks
     header = "Demultiplexes FASTQ files based on conditions",
     version = BuildInfo.version
   ) {
-  implicit private[this] def unsafeLogger[F[_]: Sync] = Slf4jLogger.getLogger[F]
+  implicit private[this] def unsafeLogger[F[_]: Sync]: Logger[F] = Slf4jLogger.getLogger[F]
 
   private[this] val conditionsFileOpt = Opts.option[Path]("conditions", short = "c", help = "The conditions file")
 
@@ -101,4 +101,5 @@ object Ducks
         }
       }
       .flatMap(Stream.chunk)
+
 }

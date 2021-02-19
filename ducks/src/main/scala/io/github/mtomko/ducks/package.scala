@@ -2,7 +2,7 @@ package io.github.mtomko
 
 import java.net.URLEncoder
 import java.nio.file.Path
-
+import cats.syntax.all._
 import cats.effect.{Blocker, Concurrent, ContextShift, Resource, Sync}
 import fs2.Stream
 import io.estatico.newtype.macros.newtype
@@ -17,13 +17,18 @@ package object ducks {
     def file(outputDir: Path, zip: Boolean): Path = outputDir.resolve(filename(zip))
   }
 
-  // this function is not in the hot path 
+  object Condition {
+    implicit val ord: Ordering[Condition] = Ordering.by(_.name)
+  }
+
+  // this function is not in the hot path
   def conditions[F[_]: Sync: ContextShift](
       path: Path
   )(implicit blocker: Blocker): F[Map[String, Condition]] = {
+    val acquire = Sync[F].delay(path.asCsvReader[(String, String)](rfc))
     val s: Stream[F, (String, Condition)] =
       for {
-        rdr <- Stream.resource(Resource.fromAutoCloseableBlocking(blocker)(Sync[F].delay(path.asCsvReader[(String, String)](rfc))))
+        rdr <- Stream.resource(Resource.fromAutoCloseableBlocking(blocker)(acquire))
         row <- Stream.fromBlockingIterator(blocker, rdr.toIterable.iterator)
         (bc, cond) <- Stream.fromEither(row)
       } yield (bc, Condition(cond))
