@@ -36,7 +36,6 @@ lazy val ducks = project
       Seq(
         libraries.catsCore,
         libraries.catsEffect,
-        //libraries.console4cats,
         libraries.decline,
         libraries.declineEffect,
         libraries.fs2Core,
@@ -55,6 +54,7 @@ lazy val ducks = project
     scalacOptions += "-Ymacro-annotations",
     buildInfoKeys := Seq[BuildInfoKey](name, version),
     buildInfoPackage := "io.github.mtomko.ducks",
+    testFrameworks := List(new TestFramework("munit.Framework")),
     addCompilerPlugin(libraries.betterMonadicFor)
   )
   .enablePlugins(GraalVMNativeImagePlugin)
