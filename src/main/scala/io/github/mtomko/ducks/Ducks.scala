@@ -5,8 +5,8 @@ import cats.effect.{Blocker, Clock, Concurrent, ContextShift, ExitCode, IO, Sync
 import cats.syntax.all._
 import com.monovore.decline.Opts
 import com.monovore.decline.effect.CommandIOApp
-import io.chrisdavenport.log4cats.Logger
-import io.chrisdavenport.log4cats.slf4j.Slf4jLogger
+import org.typelevel.log4cats.Logger
+import org.typelevel.log4cats.slf4j.Slf4jLogger
 
 import java.nio.file.{Files, Path, Paths}
 import java.util.concurrent.TimeUnit
@@ -17,7 +17,7 @@ object Ducks
       header = "Demultiplexes FASTQ files based on conditions",
       version = BuildInfo.version
     ) {
-  implicit private[this] def unsafeLogger[F[_]: Sync]: Logger[F] = Slf4jLogger.getLogger[F]
+  implicit private[this] def unsafeLogger[F[_]: Sync]: Logger[F] = Slf4jLogger.getLoggerFromName[F]("Ducks")
 
   private[this] val conditionsFileOpt = Opts.option[Path]("conditions", short = "c", help = "The conditions file")
 
@@ -39,7 +39,7 @@ object Ducks
         run[IO](Config(conditionsFile, dmuxFastq, dataFastq, outputDir, zipOutput)).as(ExitCode.Success)
     }
 
-  private[this] def run[F[_]: Sync: Clock: Concurrent: ContextShift](args: Config): F[Unit] =
+  private[this] def run[F[_]: Clock: Concurrent: ContextShift](args: Config): F[Unit] =
     Blocker[F].use { blocker =>
       conditions(args.conditionsFile, blocker).flatMap { conds =>
         def selector(t: (Fastq, Fastq)): F[Condition] =
@@ -48,15 +48,15 @@ object Ducks
         blocker.delay(Files.createDirectories(args.outputDirectory)) *>
           Ref.of(0).flatMap { count =>
             Clock[F].realTime(TimeUnit.MILLISECONDS).flatMap { t0 =>
-              val fqs = logChunkN(fastqs[F](args.fastq1, args.fastq2, blocker), 100000, t0, count)
+              val fqs = logChunkN(fastqs[F](args.fastq1, args.fastq2, blocker), 1000000, t0, count)
               fqs
-                .prefetchN(4)
+                .prefetch
                 .through(stream.groupByChunk(selector))
                 .map { case (condition, tupleStream) =>
                   val file = condition.file(args.outputDirectory, args.zipOutput)
                   writeTupleStream(file, args.zipOutput, tupleStream, blocker)
                 }
-                .parJoinUnbounded
+                .parJoin(conds.size + 4)
                 .compile
                 .drain
             }

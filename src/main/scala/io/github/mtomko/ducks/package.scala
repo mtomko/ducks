@@ -4,10 +4,10 @@ import cats.effect.concurrent.Ref
 import cats.effect.{Blocker, Clock, Concurrent, ContextShift, Resource, Sync}
 import cats.syntax.all._
 import fs2.{text, Stream}
-import io.chrisdavenport.log4cats.Logger
 import io.estatico.newtype.macros.newtype
 import kantan.csv._
 import kantan.csv.ops._
+import org.typelevel.log4cats.Logger
 
 import java.net.URLEncoder
 import java.nio.charset.Charset
@@ -40,23 +40,23 @@ package object ducks {
     s.fold(Map.empty[String, Condition]) { case (m, (bc, cond)) => m + (bc -> cond) }.compile.lastOrError
   }
 
-  private[ducks] def writeTupleStream[F[_]: Sync: Concurrent: ContextShift](
+  private[ducks] def writeTupleStream[F[_]: Concurrent: ContextShift](
     outputFile: Path,
     zipOutput: Boolean,
     tupleStream: Stream[F, (Fastq, Fastq)],
     blocker: Blocker
   ): Stream[F, Unit] =
     tupleStream
-      .prefetchN(4)
+      .prefetch
       .map(_._2.toString)
       .through(text.encode(ASCII))
       .through(stream.writeFile(outputFile, zipOutput, blocker))
 
-  private[ducks] def logChunkN[F[_]: Sync: Clock: Concurrent, A](s: Stream[F, A], n: Int, t0: Long, count: Ref[F, Int])(
+  private[ducks] def logChunkN[F[_]: Concurrent: Clock, A](s: Stream[F, A], n: Int, t0: Long, count: Ref[F, Int])(
     implicit log: Logger[F]
   ): Stream[F, A] =
     s.chunkN(100, allowFewer = true)
-      .prefetchN(4)
+      .prefetchN(8)
       .evalTapChunk { chunk =>
         val updatedCountF = count.modify { prevCount =>
           val nextCount = prevCount + chunk.size
@@ -74,11 +74,11 @@ package object ducks {
       }
       .flatMap(Stream.chunk)
 
-  def fastq[F[_]: Sync: Concurrent: ContextShift](path: Path, blocker: Blocker): Stream[F, Fastq] =
-    stream.lines[F](path, blocker).prefetchN(16).through(stream.fastq)
+  def fastq[F[_]: Concurrent: ContextShift](path: Path, blocker: Blocker): Stream[F, Fastq] =
+    stream.lines[F](path, blocker).prefetchN(8).through(stream.fastq)
 
   // no amount or combination of prefetching here seems to help with performance
-  def fastqs[F[_]: Sync: Concurrent: ContextShift](p1: Path, p2: Path, blocker: Blocker): Stream[F, (Fastq, Fastq)] =
+  def fastqs[F[_]: Concurrent: ContextShift](p1: Path, p2: Path, blocker: Blocker): Stream[F, (Fastq, Fastq)] =
     fastq(p1, blocker).zip(fastq(p2, blocker))
 
   def isGzFile(p: Path): Boolean = p.getFileName.toString.toLowerCase.endsWith(".gz")

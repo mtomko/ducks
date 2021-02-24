@@ -12,7 +12,7 @@ import scala.collection.mutable
 package object stream {
   private[this] val BufferSize = 8192
 
-  def lines[F[_]: Sync: Concurrent: ContextShift](p: Path, blocker: Blocker): Stream[F, String] = {
+  def lines[F[_]: Sync: ContextShift](p: Path, blocker: Blocker): Stream[F, String] = {
     val byteStream: Stream[F, Byte] =
       if (isGzFile(p))
         io.file
@@ -25,12 +25,13 @@ package object stream {
       .through(text.lines)
   }
 
-  def writeFile[F[_]: Sync: Concurrent: ContextShift](p: Path, zip: Boolean, blocker: Blocker): Pipe[F, Byte, Unit] = {
+  def writeFile[F[_]: Sync: ContextShift](p: Path, zip: Boolean, blocker: Blocker): Pipe[F, Byte, Unit] = {
     in =>
       val s = if (zip) in.through(compression.gzip(BufferSize)) else in
       s.through(io.file.writeAll(p, blocker))
   }
 
+  // does no validation; this is garbage-in, garbage-out
   def fastq[F[_]]: Pipe[F, String, Fastq] =
     _.chunkN(4, allowFewer = false).map(seg => Fastq(seg(0), seg(1), seg(2), seg(3)))
 
