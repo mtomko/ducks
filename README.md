@@ -2,7 +2,12 @@
 FASTQ demultiplexer
 
 ## Building
-You have two options for building `ducks`: an assembly jar, or a native image.
+You have two options for building `ducks`: an assembly jar, or a native image. You probably want to
+check out the latest version before building anything.
+
+```shell
+$ git checkout v0.1.0
+```
 
 ### Assembly Jar
 To make an assembly jar, you need [sbt](http://www.scala-sbt.org). Run:
