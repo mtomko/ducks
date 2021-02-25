@@ -11,4 +11,6 @@ src_managed/
 .vscode/
 metals.sbt
 .DS_Store
+ducks
+test-output
 real-test-data

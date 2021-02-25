@@ -32,7 +32,6 @@ lazy val ducks = project
   .enablePlugins(BuildInfoPlugin)
   .settings(
     name := "ducks",
-    version := "0.1.0",
     libraryDependencies ++=
       Seq(
         libraries.catsCore,
