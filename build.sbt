@@ -1,3 +1,5 @@
+import ReleaseTransformations._
+
 ThisBuild / scalaVersion := "2.13.5"
 ThisBuild / organization := "io.github.mtomko"
 
@@ -56,6 +58,19 @@ lazy val ducks = project
     buildInfoKeys := Seq[BuildInfoKey](name, version),
     buildInfoPackage := "io.github.mtomko.ducks",
     testFrameworks := List(new TestFramework("munit.Framework")),
-    addCompilerPlugin(libraries.betterMonadicFor)
+    addCompilerPlugin(libraries.betterMonadicFor),
+    releaseProcess := Seq[ReleaseStep](
+      checkSnapshotDependencies,              // : ReleaseStep
+      inquireVersions,                        // : ReleaseStep
+      runClean,                               // : ReleaseStep
+      runTest,                                // : ReleaseStep
+      setReleaseVersion,                      // : ReleaseStep
+      commitReleaseVersion,                   // : ReleaseStep, performs the initial git checks
+      tagRelease,                             // : ReleaseStep
+      //publishArtifacts,                       // : ReleaseStep, checks whether `publishTo` is properly set up
+      setNextVersion,                         // : ReleaseStep
+      commitNextVersion,                      // : ReleaseStep
+      pushChanges                             // : ReleaseStep, also checks that an upstream branch is properly configured
+    )
   )
   .enablePlugins(GraalVMNativeImagePlugin)
