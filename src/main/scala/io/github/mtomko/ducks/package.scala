@@ -46,14 +46,13 @@ package object ducks {
     tupleStream: Stream[F, (Fastq, Fastq)],
     blocker: Blocker
   ): Stream[F, Unit] =
-    tupleStream
-      .prefetch
+    tupleStream.prefetch
       .map(_._2.toString)
       .through(text.encode(ASCII))
       .through(stream.writeFile(outputFile, zipOutput, blocker))
 
-  private[ducks] def logChunkN[F[_]: Concurrent: Clock, A](s: Stream[F, A], n: Int, t0: Long, count: Ref[F, Int])(
-    implicit log: Logger[F]
+  private[ducks] def logChunkN[F[_]: Concurrent, A](s: Stream[F, A], n: Int, t0: Long, count: Ref[F, Int])(
+    implicit clock: Clock[F], log: Logger[F]
   ): Stream[F, A] =
     s.chunkN(100, allowFewer = true)
       .prefetchN(8)
@@ -64,7 +63,7 @@ package object ducks {
         }
         updatedCountF.flatMap { currentCount =>
           if (currentCount % n === 0)
-            Clock[F].realTime(TimeUnit.MILLISECONDS).flatMap { tn =>
+            clock.realTime(TimeUnit.MILLISECONDS).flatMap { tn =>
               val dt = tn - t0
               val avg = currentCount.toFloat / dt
               log.info(s"processed $currentCount reads ($avg reads/ms)")

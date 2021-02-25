@@ -25,10 +25,9 @@ package object stream {
       .through(text.lines)
   }
 
-  def writeFile[F[_]: Sync: ContextShift](p: Path, zip: Boolean, blocker: Blocker): Pipe[F, Byte, Unit] = {
-    in =>
-      val s = if (zip) in.through(compression.gzip(BufferSize)) else in
-      s.through(io.file.writeAll(p, blocker))
+  def writeFile[F[_]: Sync: ContextShift](p: Path, zip: Boolean, blocker: Blocker): Pipe[F, Byte, Unit] = { in =>
+    val s = if (zip) in.through(compression.gzip(BufferSize)) else in
+    s.through(io.file.writeAll(p, blocker))
   }
 
   // does no validation; this is garbage-in, garbage-out

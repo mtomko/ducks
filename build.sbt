@@ -23,6 +23,7 @@ lazy val libraries = new {
 
   // test dependencies
   lazy val munit = "org.scalameta" %% "munit" % "0.7.22"
+  lazy val munitCatsEffect = "org.typelevel" %% "munit-cats-effect-2" % "0.13.1"
   lazy val munitScalaCheck = "org.scalameta" %% "munit-scalacheck" % "0.7.22"
 }
 
@@ -31,7 +32,7 @@ lazy val ducks = project
   .enablePlugins(BuildInfoPlugin)
   .settings(
     name := "ducks",
-    version := "0.0.6",
+    version := "0.1.0",
     libraryDependencies ++=
       Seq(
         libraries.catsCore,
@@ -44,11 +45,12 @@ lazy val ducks = project
         libraries.kantanCsv,
         libraries.log4cats,
         libraries.log4catsSlf4j,
-        libraries.logbackClassic,
-        libraries.logbackCore,
         libraries.newtype,
-        libraries.slf4j,
+        libraries.logbackClassic % Runtime,
+        libraries.logbackCore % Runtime,
+        libraries.slf4j % Runtime,
         libraries.munit % Test,
+        libraries.munitCatsEffect % Test,
         libraries.munitScalaCheck % Test
       ),
     scalacOptions += "-Ymacro-annotations",
@@ -58,4 +60,3 @@ lazy val ducks = project
     addCompilerPlugin(libraries.betterMonadicFor)
   )
   .enablePlugins(GraalVMNativeImagePlugin)
-

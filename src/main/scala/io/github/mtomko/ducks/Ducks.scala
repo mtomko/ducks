@@ -49,8 +49,7 @@ object Ducks
           Ref.of(0).flatMap { count =>
             Clock[F].realTime(TimeUnit.MILLISECONDS).flatMap { t0 =>
               val fqs = logChunkN(fastqs[F](args.fastq1, args.fastq2, blocker), 1000000, t0, count)
-              fqs
-                .prefetch
+              fqs.prefetch
                 .through(stream.groupByChunk(selector))
                 .map { case (condition, tupleStream) =>
                   val file = condition.file(args.outputDirectory, args.zipOutput)
