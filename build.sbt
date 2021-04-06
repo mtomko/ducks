@@ -8,25 +8,26 @@ lazy val libraries = new {
   lazy val betterMonadicFor = "com.olegpy" %% "better-monadic-for" % "0.3.1"
 
   // dependencies
-  lazy val catsCore = "org.typelevel" %% "cats-core" % "2.4.2"
-  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "2.3.3"
-  lazy val decline = "com.monovore" %% "decline" % "1.3.0"
-  lazy val declineEffect = "com.monovore" %% "decline-effect" % "1.3.0"
-  lazy val fs2Core = "co.fs2" %% "fs2-core" % "2.5.3"
-  lazy val fs2Io = "co.fs2" %% "fs2-io" % "2.5.3"
+  lazy val catsCore = "org.typelevel" %% "cats-core" % "2.5.0"
+  lazy val catsEffect = "org.typelevel" %% "cats-effect" % "3.0.1"
+  lazy val catsEffectStd = "org.typelevel" %% "cats-effect-std" % "3.0.1"
+  lazy val decline = "com.monovore" %% "decline" % "2.0.0"
+  lazy val declineEffect = "com.monovore" %% "decline-effect" % "2.0.0"
+  lazy val fs2Core = "co.fs2" %% "fs2-core" % "3.0.1"
+  lazy val fs2Io = "co.fs2" %% "fs2-io" % "3.0.1"
   lazy val kantanCodecs = "com.nrinaudo" %% "kantan.codecs" % "0.5.2"
   lazy val kantanCsv = "com.nrinaudo" %% "kantan.csv" % "0.6.1"
-  lazy val log4cats = "org.typelevel" %% "log4cats-core" % "1.2.0"
-  lazy val log4catsSlf4j = "org.typelevel" %% "log4cats-slf4j" % "1.2.0"
+  lazy val log4cats = "org.typelevel" %% "log4cats-core" % "2.0.1"
+  lazy val log4catsSlf4j = "org.typelevel" %% "log4cats-slf4j" % "2.0.1"
   lazy val logbackCore = "ch.qos.logback" % "logback-core" % "1.2.3"
   lazy val logbackClassic = "ch.qos.logback" % "logback-classic" % "1.2.3"
   lazy val newtype = "io.estatico" %% "newtype" % "0.4.4"
   lazy val slf4j = "org.slf4j" % "slf4j-api" % "1.7.30"
 
   // test dependencies
-  lazy val munit = "org.scalameta" %% "munit" % "0.7.22"
-  lazy val munitCatsEffect = "org.typelevel" %% "munit-cats-effect-2" % "0.13.1"
-  lazy val munitScalaCheck = "org.scalameta" %% "munit-scalacheck" % "0.7.22"
+  lazy val munit = "org.scalameta" %% "munit" % "0.7.23"
+  lazy val munitCatsEffect = "org.typelevel" %% "munit-cats-effect-3" % "1.0.1"
+  lazy val munitScalaCheck = "org.scalameta" %% "munit-scalacheck" % "0.7.23"
 }
 
 lazy val ducks = project
@@ -38,6 +39,7 @@ lazy val ducks = project
       Seq(
         libraries.catsCore,
         libraries.catsEffect,
+        libraries.catsEffectStd,
         libraries.decline,
         libraries.declineEffect,
         libraries.fs2Core,
